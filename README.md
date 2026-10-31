@@ -37,8 +37,11 @@ The reverb example takes 13 % of the audio block. Details in [docs/HARDWARE.md](
 
 ## Build
 
-Needs Linux x86-64 (or Docker), Python 3 and JieLi's toolchain (clang 4.0.1 for pi32v2), which
-`tools/get_toolchain.sh` downloads from JieLi's package server:
+Needs Python 3 and JieLi's toolchain (clang 4.0.1 for pi32v2), which `tools/get_toolchain.sh` downloads
+from JieLi's package server. The toolchain is Linux x86-64 only: on Linux x86-64 it runs as is; on macOS
+(or ARM Linux) `build.sh` runs itself in a `linux/amd64` container, so install Docker Desktop, OrbStack or
+Colima (with Rosetta on Apple silicon: `colima start --vm-type vz --vz-rosetta`). The builds are the same
+byte for byte either way.
 
 ```
 git clone --recurse-submodules https://github.com/dhilowitz/GalaxiaSDK.git

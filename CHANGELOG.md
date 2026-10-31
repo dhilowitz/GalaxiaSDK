@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Build on macOS**: `build.sh` runs itself in a `linux/amd64` Docker container where JieLi's toolchain cannot
+  run (Docker Desktop, OrbStack or Colima); `get_toolchain.sh` works on macOS. Tested on an Apple silicon Mac
+  with Colima and Rosetta: every example and the update loader identical to the Linux builds.
+
 - **Updates over USB MIDI** (experimental; works on a pedal: reverb and Colorways installed this way, about half a minute each): SDK firmware answers the update protocol
   of M-VAVE's own updater (felucca-bsp's `chip/ota.c`); `tools/gx_pkg.py` makes a package, `tools/gx_update.py`
   installs it with no bootloader or sudo. A Galaxia update loader (`loader/gx_loader.c`, from felucca-bsp's) is

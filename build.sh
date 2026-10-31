@@ -15,6 +15,17 @@ SRC="$ROOT/examples/$NAME"
 O="$ROOT/build/$NAME"
 [ -f "$BSP/chip/crt0.S" ] || { echo "build.sh: bsp/ is empty: git submodule update --init"; exit 1; }
 [ -f "$SRC/main.c" ] || { echo "build.sh: no examples/$NAME/main.c"; exit 1; }
+# JieLi's toolchain runs on Linux x86-64 only. Anywhere else (macOS, ARM Linux) this script runs itself again in a
+# linux/amd64 container: Docker Desktop, OrbStack or Colima (Rosetta runs the toolchain on Apple silicon).
+# GX_DOCKER=1 or 0 forces either way; GX_DOCKER_IMAGE picks the image (it needs python3).
+case "$(uname -s)/$(uname -m)" in Linux/x86_64|Linux/amd64) NATIVE=1 ;; *) NATIVE=0 ;; esac
+if [ -z "$GX_IN_DOCKER" ] && [ "${GX_DOCKER:-$((1 - NATIVE))}" = 1 ]; then
+    command -v docker >/dev/null || { echo "build.sh: the toolchain needs Linux x86-64; here it runs in Docker, which is not installed (Docker Desktop, OrbStack or Colima)"; exit 1; }
+    TCR="$(cd "$TC" && pwd -P)"
+    exec docker run --rm --platform linux/amd64 -e GX_IN_DOCKER=1 -e JIELI_TOOLCHAIN=/opt/jieli \
+        -v "$ROOT:$ROOT" -v "$TCR:/opt/jieli:ro" -w "$ROOT" "${GX_DOCKER_IMAGE:-python:3.12-slim-bookworm}" \
+        sh "$ROOT/build.sh" "$NAME"
+fi
 rm -rf "$O"; mkdir -p "$O"
 CC="$TC/pi32v2/bin/clang -target pi32v2"
 INC="-I$BSP/chip -I$ROOT/boards/galaxia -I$ROOT/runtime -I$SRC -I$BSP/boards/fm1"   # (boards/fm1: fm1_adc.h only)
