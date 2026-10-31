@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **USB audio on macOS 13-15**: felucca-bsp updated to cd76d43 for `FELUCCA_UAC_MIDI_LAST` (the audio streaming
+  interfaces right after audio control, MIDI last; Felucca #67); the runtime turns it on, with the streams first
+  in the collection. The pedal now appears in macOS 15.8 as a 2-in, 2-out audio device (it did not before).
+  Two apps can still keep it away: Chrome holding the device open, and Focusrite Control's background service.
+
 - **Build on macOS**: `build.sh` runs itself in a `linux/amd64` Docker container where JieLi's toolchain cannot
   run (Docker Desktop, OrbStack or Colima); `get_toolchain.sh` works on macOS. Tested on an Apple silicon Mac
   with Colima and Rosetta: every example and the update loader identical to the Linux builds.

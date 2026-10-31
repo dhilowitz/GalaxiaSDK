@@ -8,8 +8,10 @@ felucca-bsp (bsp/, a git submodule; MPL-2.0)
   https://github.com/hugelton/felucca-bsp
   Leo Kuroshita (@kurogedelic), Hügelton Instruments; Charles Vestal; Kerem Kilic (keremimo); and the
   contributors named in its own NOTICE. The chip layer, USB device, interrupts, flash, boot guard and
-  console here are theirs. runtime/gx_runtime.c, runtime/app.ld and build.sh follow its
-  examples/hwtest.
+  console here are theirs, and the update protocol and loader (chip/ota.c, loader/ldr_core.c) that
+  loader/gx_loader.c and tools/gx_update.py use. runtime/gx_runtime.c, runtime/app.ld and build.sh
+  follow its examples/hwtest. felucca-bsp also holds two Apache-2.0 files from JieLi's AC79 SDK
+  (chip/ble_rf_tables_v15.h, chip/fm1_rf_cal.h, for the radio); the Galaxia SDK does not use them.
 
 jl-uboot-tool (tools/jl-uboot-tool, a git submodule; MIT)
   https://github.com/kagaimiq/jl-uboot-tool

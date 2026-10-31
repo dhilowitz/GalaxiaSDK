@@ -66,6 +66,12 @@
 #define FELUCCA_UAC 1
 #define FELUCCA_UAC_OUT 1
 #define FELUCCA_UAC_48K 0
+/* the audio streaming interfaces before the MIDI one in the audio function: macOS up to 15 shows no audio
+ * device otherwise (its USB audio driver stops parsing after the MIDI interface; felucca-bsp's usb.c) */
+#define FELUCCA_UAC_AS_FIRST 1
+/* and the audio streaming interfaces right after audio control, MIDI last: macOS 13-15 attach their USB audio
+ * driver only then (felucca-bsp's usb.c, Felucca #67); 1 keeps MIDI in the collection, which Linux needs */
+#define FELUCCA_UAC_MIDI_LAST 1
 #define FELUCCA_USB_PID GX_USB_PID
 #define FELUCCA_USB_MANUFACTURER "Galaxia SDK (unofficial)"
 #define FELUCCA_USB_PRODUCT GX_USB_PRODUCT
@@ -134,7 +140,9 @@ void fm1_alnk0_irq(void)
     for (i = 0; i < HALF_WORDS; i++)                    /* signed 24-bit in a 32-bit word */
         work[i] = (int32_t)((uint32_t)in[i] << 8) >> 8;
     uac_render_start();
+#if FELUCCA_UAC_OUT
     uac_play(work, HALF_FRAMES, 4096u);                 /* the computer's audio joins the input */
+#endif
     if (gx_updating)
         for (i = 0; i < HALF_WORDS; i++)
             tx_buf[half * HALF_WORDS + i] = 0;
