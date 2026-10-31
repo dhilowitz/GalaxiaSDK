@@ -7,7 +7,8 @@
 
 The pedal must be in the bootloader ("WL82 UBOOT1.00" over USB): run `gx_softkey.py` while the stock
 firmware or a Galaxia SDK firmware runs, or let a broken build drop there by itself (two failed starts).
-Linux only for now (jl-uboot-tool's SCSI access; run as a user allowed to open the /dev/sg device).
+Linux: run as a user allowed to open the /dev/sg device (docs/INSTALL.md has a udev rule). macOS: run with
+sudo, which needs pyusb and libusb (gx_macscsi.py); macOS's own disk driver holds the bootloader otherwise.
 
   gx_flash.py backup BACKUP.bin            the whole 1 MiB flash, read twice and compared. Do this first:
                                            it is the only copy of your pedal's stock firmware.
@@ -62,10 +63,14 @@ class Pedal:
 
     def __init__(self):
         import yaml
+        if sys.platform == "darwin":
+            import gx_macscsi                   # stands in for jl-uboot-tool's scsiio
+            self.scsi = gx_macscsi.open_uboot()
         from jltech.uboot import JL_UBOOT, JL_LoaderV2
         from jltech.cipher import cipher_bytes, jl_crc_cipher
-        from scsiio import SCSIDev
-        self.scsi = SCSIDev(find_uboot())
+        if sys.platform != "darwin":
+            from scsiio import SCSIDev
+            self.scsi = SCSIDev(find_uboot())
         self.ldr = JL_LoaderV2(self.scsi)
         try:                                    # a loader left running by an earlier session
             self.ldr.chip_key()
@@ -155,16 +160,26 @@ class Pedal:
 
 
 def need_modules():
+    mods = {"yaml": "pyyaml", "crcmod": "crcmod"}
+    if sys.platform == "darwin":
+        mods["usb"] = "pyusb"
     missing = []
-    for m in ("yaml", "crcmod"):
+    for m, pkg in mods.items():
         try:
             __import__(m)
         except ImportError:
-            missing.append(m)
+            missing.append(pkg)
     if missing:
-        raise SystemExit("gx_flash.py needs the Python modules pyyaml and crcmod (missing: %s). Debian/Ubuntu: "
-                         "sudo apt install python3-yaml python3-crcmod; elsewhere: pip install pyyaml crcmod"
-                         % ", ".join(missing))
+        raise SystemExit("gx_flash.py needs the Python modules %s (missing: %s). Debian/Ubuntu: "
+                         "sudo apt install python3-yaml python3-crcmod; elsewhere: pip install %s"
+                         % (", ".join(mods.values()), ", ".join(missing), " ".join(mods.values())))
+
+
+def give_back(path):
+    """A file written under sudo belongs to the user who ran sudo, not root."""
+    uid, gid = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
+    if uid and gid:
+        os.chown(path, int(uid), int(gid))
 
 
 def main():
@@ -192,6 +207,7 @@ def main():
     if a.cmd == "backup":
         flash = p.read_twice()
         Path(a.out).write_bytes(flash)
+        give_back(a.out)
         print("backup %s: sha256 %s" % (a.out, sha(flash)))
         names = [r[1] for r in jl_package.parse(flash)[0] if r[6]]
         print("firmware found: " + ", ".join(n for n in names if n in ("app.bin", "cfg_tool.bin")))

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Install from macOS**: `gx_flash.py` drives the bootloader over libusb on a Mac (run with sudo; macOS's
+  disk driver holds the device otherwise). Backup and install tested on an Apple silicon Mac. Files
+  written under sudo belong to the user who ran it.
+
 ## 0.1.0 (2026-10-31)
 
 The first release.

@@ -46,7 +46,8 @@ def main():
         want = (port or "FM-1").lower()
         hits = [i for i, n in enumerate(names) if want in n.lower() or "galaxia" in n.lower()]
         if not hits:
-            raise SystemExit("no MIDI port matching %r in %s" % (want, names))
+            raise SystemExit("no Galaxia MIDI port (is the pedal plugged in and running, not already in its "
+                             "bootloader?); ports: %s" % names)
         out.open_port(hits[0])
         out.send_message(list(SOFT_KEY))
         time.sleep(0.2)

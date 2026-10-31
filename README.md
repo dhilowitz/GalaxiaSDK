@@ -48,7 +48,8 @@ JIELI_TOOLCHAIN=~/.jieli/toolchain ./build.sh reverb     # -> build/reverb/rever
 
 ## Install
 
-See [docs/INSTALL.md](docs/INSTALL.md). In short, on Linux with the pedal on USB:
+See [docs/INSTALL.md](docs/INSTALL.md) (Linux or macOS; on macOS `gx_flash.py` needs `sudo` and
+libusb). In short, with the pedal on USB:
 
 ```
 python3 tools/gx_softkey.py                         # into the bootloader

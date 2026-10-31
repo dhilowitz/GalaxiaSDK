@@ -9,9 +9,26 @@
 > affiliated with or endorsed by M-VAVE or JieLi.
 
 Everything goes over the pedal's USB-C port, through the chip's ROM bootloader. The tools run on
-Linux (jl-uboot-tool talks to the bootloader as a SCSI device); a Raspberry Pi works.
+Linux (a Raspberry Pi works) and macOS. Building a firmware needs Linux x86-64; see the README.
 
-## Once: access and Python
+## Once on macOS: libusb, Python, sudo
+
+macOS's own disk driver takes the bootloader, and only root can take it back, so on a Mac
+`gx_flash.py` runs with `sudo` (the soft key and the serial console do not). It talks to the
+bootloader through libusb (`brew install libusb`). With sudo, a virtual environment keeps the Python
+modules in reach:
+
+```
+python3 -m venv ~/.galaxia-venv
+~/.galaxia-venv/bin/pip install pyusb pyyaml crcmod python-rtmidi
+```
+
+Then use `~/.galaxia-venv/bin/python` for `python3` below, with `sudo` in front of `gx_flash.py`
+(for example `sudo ~/.galaxia-venv/bin/python tools/gx_flash.py backup my-galaxia.bin`). Files it
+writes belong to you, not root. The serial console is `/dev/cu.usbmodem*`. If macOS says it cannot
+read a disk while the pedal is in the bootloader, choose Ignore.
+
+## Once on Linux: access and Python
 
 The bootloader shows up as a USB disk, `WL82 UBOOT1.00` (USB 4c4a:8057). Let your user open it and
 the pedal's MIDI port without root, e.g. as `/etc/udev/rules.d/70-galaxia.rules`:
