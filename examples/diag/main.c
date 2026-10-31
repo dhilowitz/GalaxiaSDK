@@ -55,7 +55,7 @@ static void app_audio(const int32_t *in, int32_t *out, uint32_t frames)
         return;
     }
     for (i = 0; i < frames; i++) {
-        /* 1000 Hz at 44118 Hz: a parabolic sine (as Colorways' test tone), amplitude 0.25 */
+        /* 1000 Hz at 44118 Hz: a parabolic sine approximation, amplitude 0.25 */
         float ph, x, y;
         int32_t s, back;
         phase += 97352548u;                         /* 1000 Hz: 2^32 * 1000 / 44118 */

@@ -40,7 +40,7 @@ Needs Linux x86-64 (or Docker), Python 3 and JieLi's toolchain (clang 4.0.1 for 
 `tools/get_toolchain.sh` downloads from JieLi's package server:
 
 ```
-git clone --recurse-submodules <this repository>
+git clone --recurse-submodules https://github.com/dhilowitz/GalaxiaSDK.git
 cd GalaxiaSDK
 tools/get_toolchain.sh                                   # -> ~/.jieli/toolchain
 JIELI_TOOLCHAIN=~/.jieli/toolchain ./build.sh reverb     # -> build/reverb/reverb.bin
