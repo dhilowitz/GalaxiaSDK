@@ -89,6 +89,7 @@ static void stage(uint32_t s) { GX_DBG[DBG_STAGE] = s; }
 static int32_t tx_buf[2 * HALF_WORDS] __attribute__((aligned(32)));
 static int32_t rx_buf[2 * HALF_WORDS] __attribute__((aligned(32)));
 static int32_t work[HALF_WORDS];
+static const int32_t *gx_rx_raw;                       /* this block's received words, unconverted (diagnostics) */
 static struct { volatile uint32_t blocks, late, sum, count, peak; } load;
 
 static int gx_mono_input(void) { return !(gx_in.jacks & GX_JACK_RIGHT); }
@@ -105,6 +106,7 @@ void fm1_alnk0_irq(void)
     t0 = fm1_ticks();
     half = gx_audio_free_half();
     in = &rx_buf[half * HALF_WORDS];
+    gx_rx_raw = in;
     for (i = 0; i < HALF_WORDS; i++)                    /* signed 24-bit in a 32-bit word */
         work[i] = (int32_t)((uint32_t)in[i] << 8) >> 8;
     uac_render_start();

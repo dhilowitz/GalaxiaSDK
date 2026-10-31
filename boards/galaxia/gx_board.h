@@ -158,7 +158,8 @@ static void gx_scan_tick(void)
 
 FM1_INLINE uint8_t gx_audio_pending(void) { return (uint8_t)((GX_ALNK_CON2 >> 4) & 15u); }
 FM1_INLINE void gx_audio_ack(uint8_t p) { GX_ALNK_CON2 = (uint8_t)(p & 15u); }
-FM1_INLINE uint32_t gx_audio_free_half(void) { return ((GX_ALNK_CON0 >> 15) & 1u) ^ 1u; }
+/* CON0 bits 12..15: each lane's current DMA half (the FM-1's lane 3 is bit 15); lane 0 is ours */
+FM1_INLINE uint32_t gx_audio_free_half(void) { return ((GX_ALNK_CON0 >> 12) & 1u) ^ 1u; }
 FM1_INLINE void gx_audio_stop(void) { GX_ALNK_CON0 &= ~0x800u; }
 
 /* The register sequence of the stock Galaxia_002 firmware (its 0x2F2E..0x30D0), with the lane
