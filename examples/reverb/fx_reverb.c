@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 David Hilowitz */
-/* Galaxia stereo reverb (see fx_reverb.h). Measured on a Galaxia: T60 3.07-3.14 s for a 3.23 s setting,
- * L/R correlation 0.15, 13 % of the audio block. */
+/* Galaxia stereo reverb (see fx_reverb.h). The decay setting is the T60 before the tone filter in the
+ * loop, which takes a little more each pass: at 1 kHz with the tone fully up, a 3.23 s setting predicts
+ * 3.15 s. Measured on a Galaxia through its analog jacks: 3.09-3.14 s, L/R correlation 0.15, 14 % of the
+ * audio block. */
 #include "fx_reverb.h"
 
 #define RAMFN_FX __attribute__((section(".ram_text.fx"), noinline))

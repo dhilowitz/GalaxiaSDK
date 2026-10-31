@@ -50,7 +50,7 @@ channel 8 is not.
 | Clock | 11.2896 MHz MCLK (256 fs): 44,118 Hz nominal 44.1 kHz |
 | Format | signed 24-bit samples in the low 24 bits of 32-bit words, interleaved L/R (received words are not sign-extended) |
 | Double buffer | ALNK_CON0 bits 12-15 show each lane's current DMA half; the free half is the other one. Lanes 0 and 1 use bits 12 and 13 (felucca-bsp's FM-1 code reads bit 15, its lane 3: on the Galaxia that bit never changes) |
-| Measured | `examples/diag`'s 1 kHz tone, left output -> audio interface: clean, no block-rate sidebands; input noise ~-98 dBFS |
+| Measured | Through an audio interface (Scarlett 2i2) at about -32 dBFS: both outputs and both inputs clean (distortion and spurious tones below the noise, 60 dB down), L to L and R to R, no crosstalk above the noise (> 60 dB); `examples/passthrough` within 1 dB end to end. Input noise ~-98 dBFS. Turn an interface's direct monitoring off for such tests: it feeds the outputs back in |
 
 ## Debugging notes
 
