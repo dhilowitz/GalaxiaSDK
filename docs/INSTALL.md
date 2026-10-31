@@ -1,5 +1,13 @@
 # Installing firmware on a Galaxia
 
+> [!WARNING]
+> **Use at your own risk.** Everything here is unofficial and experimental, provided as is, with no
+> warranty of any kind (see sections 6 and 7 of the [licence](../LICENSE)). Replacing the pedal's
+> firmware may void its warranty and can leave it not working; the recovery steps below have worked
+> every time so far, but they are not guaranteed. A new firmware can make loud or unexpected sound:
+> start with the volume down. You alone are responsible for what you do with your pedal. Not
+> affiliated with or endorsed by M-VAVE or JieLi.
+
 Everything goes over the pedal's USB-C port, through the chip's ROM bootloader. The tools run on
 Linux (jl-uboot-tool talks to the bootloader as a SCSI device); a Raspberry Pi works.
 

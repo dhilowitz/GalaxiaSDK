@@ -4,9 +4,16 @@ Write your own firmware for the **M-VAVE Galaxia** stereo reverb pedal. This is 
 runtime on top of [felucca-bsp](https://github.com/hugelton/felucca-bsp), plus the tools to back up,
 install and restore firmware over USB. No soldering, no programmer.
 
-Unofficial. Not affiliated with or endorsed by M-VAVE or JieLi. Product and company names belong to
-their owners. You can make your pedal misbehave; the recovery path is described below, and you
-should **back up your pedal before anything else**.
+> [!WARNING]
+> **Use at your own risk.** This is unofficial, experimental software, provided as is, with no
+> warranty of any kind (see sections 6 and 7 of the [licence](LICENSE)). Installing firmware that
+> M-VAVE did not write may void your pedal's warranty. It can leave your pedal not working, and while
+> every case met so far could be recovered over USB, that is not guaranteed. Firmware you build or
+> install can also produce loud or unexpected sound: keep the volume down and protect your ears and
+> speakers when trying something new. You alone are responsible for what you do with your pedal.
+>
+> Not affiliated with or endorsed by M-VAVE or JieLi. Product and company names belong to their
+> owners. **Back up your pedal before anything else** ([docs/INSTALL.md](docs/INSTALL.md)).
 
 ## What you get
 

@@ -1,5 +1,9 @@
 # Galaxia hardware (board PD49 V03)
 
+> **Use at your own risk.** Unofficial notes from one pedal, provided as is, with no warranty: other
+> board revisions may differ, and driving a pin the wrong way can damage hardware. Not affiliated with
+> or endorsed by M-VAVE or JieLi.
+
 Everything here was checked on a real pedal (2026-10-30). Pin numbers use JieLi's scheme
 (pin = port x 16 + bit; GPIO block at 0x50000 + 0x40 x port: OUT +0, IN +4, DIR +8, DIE +12, PU +16, PD +20).
 
