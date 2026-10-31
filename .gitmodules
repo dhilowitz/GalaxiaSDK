@@ -1,0 +1,6 @@
+[submodule "bsp"]
+	path = bsp
+	url = https://github.com/hugelton/felucca-bsp.git
+[submodule "tools/jl-uboot-tool"]
+	path = tools/jl-uboot-tool
+	url = https://github.com/kagaimiq/jl-uboot-tool.git

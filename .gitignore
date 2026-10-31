@@ -1,0 +1,6 @@
+build/
+__pycache__/
+*.pyc
+.DS_Store
+# your pedal's backup is M-VAVE's firmware: never commit one
+*.bin
