@@ -23,7 +23,8 @@ install and restore firmware over USB. No soldering, no programmer.
 | `runtime/` | Everything a firmware needs besides the effect: boot, USB MIDI, USB audio both ways, a serial console, the watchdog, the fault report and a boot guard. An application defines five hooks. |
 | `examples/passthrough/` | The smallest firmware: input to output, a mute footswitch. |
 | `examples/reverb/` | A stereo reverb (8-line feedback delay network) with bypass, freeze, five knobs and room size on the selector. |
-| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore), `jl_package.py` (the flash image). |
+| `examples/diag/` | Audio link check: a 1 kHz tone on the left output, the raw input words and buffer counters on the console. |
+| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image). |
 | `docs/` | [HARDWARE.md](docs/HARDWARE.md), [INSTALL.md](docs/INSTALL.md). |
 
 ## The hardware in short
@@ -32,6 +33,11 @@ JieLi WL82 / AC791N family (pi32v2 CPU with a single-precision FPU), 1 MiB of fl
 RAM, an external stereo converter at 44.1 kHz. With the runtime and USB, an effect has **about 410 KiB
 of RAM** for its buffers (the reverb example uses 116 KiB of it) and runs every 128 frames.
 The reverb example takes 13 % of the audio block. Details in [docs/HARDWARE.md](docs/HARDWARE.md).
+
+> [!IMPORTANT]
+> **Known problem:** an SDK firmware does not yet start when the pedal is powered up; the pedal comes up
+> in its bootloader instead. `python3 tools/gx_flash.py run` starts it (see
+> [docs/INSTALL.md](docs/INSTALL.md)). Restarts from the firmware itself work.
 
 ## Build
 
@@ -71,7 +77,7 @@ compiled for speed:
 
 static void app_init(void) { }
 static void app_audio(const int32_t *in, int32_t *out, uint32_t frames) { /* 128 stereo frames */ }
-static void app_poll(uint32_t now_ms) { /* gx_in.knob[], gx_in.switches, gx_led() */ }
+static void app_poll(uint32_t now_ms) { /* gx_in.knob[], gx_in.switches, gx_led(), gx_selector_position() */ }
 static int app_command(const char *line, uint32_t n) { return 0; }
 static void app_status(void) { }
 ```

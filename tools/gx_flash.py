@@ -14,6 +14,9 @@ Linux only for now (jl-uboot-tool's SCSI access; run as a user allowed to open t
   gx_flash.py install APP.bin BACKUP.bin   build an image from APP.bin (build/<example>/<example>.bin)
                                            with your backup's boot head, write it, verify it, restart
   gx_flash.py restore BACKUP.bin           put the backed-up firmware back, verify it, restart
+  gx_flash.py run                          restart the firmware already on the pedal (nothing written):
+                                           an SDK firmware does not start from power-off yet, see
+                                           docs/INSTALL.md
 
 The boot head (0x0000-0x3FFF: the boot loader and its settings) and the factory key area
 (0xFF000-0xFFFFF) are never erased or written.
@@ -30,6 +33,7 @@ import jl_package  # noqa: E402
 FLASH_SIZE = 0x100000
 HEAD_END, KEY_MAC = 0x4000, 0xFF000
 SECTOR, BLOCK, PAGE = 0x1000, 0x10000, 0x100
+MAILBOX, MAILBOX_LEN = 0x01C7FD80, 0x80          # boot request and update record (RAM)
 CHIP_KEY, FLASH_ID = 0x980F, 0x856014           # every Galaxia (and FM-1) seen so far
 WL82_LOADER_SHA256 = "d41da6126760c9d66660bcc0cac8d27d221806c5e369a8036921efe68dca5376"
 
@@ -139,6 +143,12 @@ class Pedal:
         print("wrote and verified 0x%X..0x%X (%d pages)" % (HEAD_END, end - 1, pages))
 
     def restart(self):
+        # The stock firmware's soft key leaves "usb_update_mode" at 0x01C7FD80, and the boot loader
+        # would obey it once more on this restart: clear that mailbox first (as the runtime does).
+        try:
+            self.ldr.mem_write(MAILBOX, bytes(MAILBOX_LEN))
+        except Exception:
+            pass
         try:
             self.ldr.run_app()
         except Exception:
@@ -152,6 +162,7 @@ def main():
     b = sub.add_parser("backup"); b.add_argument("out")
     i = sub.add_parser("install"); i.add_argument("app"); i.add_argument("backup")
     r = sub.add_parser("restore"); r.add_argument("backup")
+    sub.add_parser("run")
     a = ap.parse_args()
 
     if a.cmd == "backup" and Path(a.out).exists():
@@ -163,6 +174,9 @@ def main():
 
     p = Pedal()
     p.check()
+    if a.cmd == "run":
+        p.restart()
+        return
     if a.cmd == "backup":
         flash = p.read_twice()
         Path(a.out).write_bytes(flash)

@@ -3,7 +3,7 @@
 /* Stereo reverb (fx_reverb.c) on the Galaxia's controls.
  *   left footswitch    bypass on / off (LED green while the effect is on)
  *   right footswitch   freeze while held (LED red; yellow with green)
- *   knobs              left-bottom mix, left-top decay, right-top tone, middle-right predelay,
+ *   knobs              left-bottom mix, left-top decay, right-top tone, bottom-right predelay,
  *                      middle-bottom level; the selector steps the room size through 9 positions
  *   MIDI out           knobs CC 20-25, selector step CC 26, bypass CC 80, freeze CC 81
  *   console            D/T/P/M/L<0-1023> decay tone predelay mix level, S<0-8> size, B bypass,
@@ -12,7 +12,6 @@
 #include "gx_runtime.c"
 #include "fx_reverb.h"
 
-#define SELECTOR_STEPS 9u
 enum { OV_DECAY, OV_TONE, OV_PREDELAY, OV_MIX, OV_LEVEL, OV_N };
 static int32_t override[OV_N] = {-1, -1, -1, -1, -1};
 static int32_t override_size = -1;
@@ -25,21 +24,10 @@ static void app_audio(const int32_t *in, int32_t *out, uint32_t frames)
     rv_process(in, out, frames, (uint32_t)gx_mono_input());
 }
 
-static uint32_t selector_step(uint32_t raw, uint32_t current)   /* even detents with hysteresis */
-{
-    const uint32_t span = 1024u / SELECTOR_STEPS;
-    uint32_t centre = current * span + span / 2u, s;
-    if (raw + span * 6u / 10u < centre || raw > centre + span * 6u / 10u) {
-        s = raw / span;
-        return s >= SELECTOR_STEPS ? SELECTOR_STEPS - 1u : s;
-    }
-    return current;
-}
-
 static void app_poll(uint32_t now)
 {
     static uint32_t last_ms, prev_sw;
-    static const uint8_t knob_of[OV_N] = {GX_KNOB_LEFT_TOP, GX_KNOB_RIGHT_TOP, GX_KNOB_MIDDLE_RIGHT,
+    static const uint8_t knob_of[OV_N] = {GX_KNOB_LEFT_TOP, GX_KNOB_RIGHT_TOP, GX_KNOB_RIGHT_BOTTOM,
                                           GX_KNOB_LEFT_BOTTOM, GX_KNOB_MIDDLE_BOTTOM};
     uint32_t i, sw = gx_in.switches, v[OV_N];
     if (now - last_ms < 5u)
@@ -55,7 +43,7 @@ static void app_poll(uint32_t now)
             gx_midi_cc(20u + i, sent_cc[i]);
         }
     }
-    step = selector_step(smooth[GX_KNOB_SELECTOR] >> 4, step);
+    step = gx_selector_position(smooth[GX_KNOB_SELECTOR] >> 4, step);
     if (step != sent_cc[GX_KNOBS]) {
         sent_cc[GX_KNOBS] = step;
         gx_midi_cc(26, step);

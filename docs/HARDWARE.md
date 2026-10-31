@@ -4,7 +4,7 @@
 > board revisions may differ, and driving a pin the wrong way can damage hardware. Not affiliated with
 > or endorsed by M-VAVE or JieLi.
 
-Everything here was checked on a real pedal (2026-10-30). Pin numbers use JieLi's scheme
+Everything here was checked on a real pedal (2026-10-30 and 31). Pin numbers use JieLi's scheme
 (pin = port x 16 + bit; GPIO block at 0x50000 + 0x40 x port: OUT +0, IN +4, DIR +8, DIE +12, PU +16, PD +20).
 
 ## Chip and memory
@@ -20,14 +20,17 @@ Everything here was checked on a real pedal (2026-10-30). Pin numbers use JieLi'
 
 ## Controls
 
+The top panel has two rows of three: top-left knob, selector, top-right knob; bottom-left,
+bottom-middle and bottom-right knobs. Every knob reads 0 fully anticlockwise and 1023 fully clockwise.
+
 | Control | Pin | ADC channel | Notes |
 |---|---|---|---|
-| left-bottom knob | PB06 | 4 | |
-| left-top knob | PB07 | 5 | |
-| middle-right knob | PC00 | 6 | |
-| right-top knob | PC01 | 7 | |
-| selector | PC09 or PC10 | 8 | continuous reading; quantise to its detents in firmware |
-| middle-bottom knob | PC10 or PC09 | 9 | |
+| bottom-left knob | PB06 | 4 | |
+| top-left knob | PB07 | 5 | |
+| bottom-right knob | PC00 | 6 | |
+| top-right knob | PC01 | 7 | |
+| selector | PC09 or PC10 | 8 | nine detents, unevenly spaced in the reading: use `gx_selector_position()` |
+| bottom-middle knob | PC10 or PC09 | 9 | |
 | left footswitch | PA01 | | low while pressed; pull-up |
 | right footswitch | PA00 | | low while pressed; pull-up |
 | left input jack | PC05 | | low with a plug in (PC02 also changes) |
@@ -45,8 +48,25 @@ channel 8 is not.
 | Pins | PA04 MCLK, PA05 SCLK, PA06 LRCLK, PA07 data out (lane 0, to the DAC), PA08 data in (lane 1, from the ADC) |
 | Converter | external stereo codec; held in reset on PA09 until the clocks run; no other set-up needed |
 | Clock | 11.2896 MHz MCLK (256 fs): 44,118 Hz nominal 44.1 kHz |
-| Format | signed 24-bit samples in 32-bit words, interleaved L/R |
-| Measured | USB tone -> outputs -> cables -> inputs -> USB: channels correct, ~75 dB separation, 2nd harmonic ~-65 dB; input noise ~-98 dBFS |
+| Format | signed 24-bit samples in the low 24 bits of 32-bit words, interleaved L/R (received words are not sign-extended) |
+| Double buffer | ALNK_CON0 bits 12-15 show each lane's current DMA half; the free half is the other one. Lanes 0 and 1 use bits 12 and 13 (felucca-bsp's FM-1 code reads bit 15, its lane 3: on the Galaxia that bit never changes) |
+| Measured | `examples/diag`'s 1 kHz tone, left output -> audio interface: clean, no block-rate sidebands; input noise ~-98 dBFS |
+
+## Known problem: no start from power-off
+
+An SDK firmware does not start when the pedal is powered up: the boot loader in flash goes to the ROM
+bootloader without entering the firmware (its first instruction never runs). Restarts work (the
+console's `r`, and `gx_flash.py run` from the bootloader). The stock firmware, and test builds made with
+M-VAVE's own kit, do start from power-off, so the difference is in the image; not found yet.
+
+## Debugging notes
+
+- The ROM bootloader's memory read returns scrambled data, and the USB loader that `gx_flash.py` uploads
+  (to 0x01C02000) overwrites RAM up to about 0x01C08000. Read RAM through the loader, above that.
+- The first restart after installing from the stock firmware can return to the bootloader: its soft key
+  leaves "usb_update_mode" at 0x01C7FD80. `gx_flash.py` clears it before restarting.
+- On a Linux desktop, PulseAudio or PipeWire may hold the pedal's USB audio; record through it
+  (`parecord`, `pw-record`) or use `hw:` devices on a machine without a sound server.
 
 ## Not mapped yet
 

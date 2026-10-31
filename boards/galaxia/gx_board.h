@@ -6,8 +6,11 @@
  *   audio      ALNK0 on the port A group (IOMAP_CON5 bits 6-7 = 1): PA04 MCLK, PA05 SCLK, PA06 LRCLK,
  *              lane 0 = PA07 transmit to the converter's DAC, lane 1 = PA08 receive from its ADC;
  *              PA09 holds the converter in reset until the clocks run. 11.2896 MHz MCLK, 44,118 Hz.
- *   knobs      SARADC channels 4..9: left-bottom, left-top, middle-right, right-top, the selector,
- *              middle-bottom (pins PB06, PB07, PC00, PC01, PC09/PC10)
+ *   knobs      two rows of three on the top panel: top-left, selector, top-right over bottom-left,
+ *              bottom-middle, bottom-right. SARADC channels 4..9: bottom-left, top-left, bottom-right,
+ *              top-right, the selector, bottom-middle (pins PB06, PB07, PC00, PC01, PC09/PC10);
+ *              every knob reads 0 fully anticlockwise, 1023 fully clockwise
+ *   selector   nine detents, unevenly spaced in its reading: gx_selector_position()
  *   switches   left footswitch PA01, right footswitch PA00: low while pressed
  *   jacks      input jack detects: left PC05, right PC06, low with a plug in (outputs have none)
  *   LED        two colours, active low: PA02 red, PA03 green (both: yellow)
@@ -20,6 +23,7 @@
  *               if (p & GX_AUDIO_RX) { h = gx_audio_free_half(); rx half h in, tx half h out }
  *   gx_scan_tick()             10 kHz (TIMER5): debounce switches and jacks, step the knob conversions
  *   gx_led(red, green)
+ *   gx_selector_position(raw, current)   the selector's detent, 0..8 (raw: its 0..1023 reading)
  */
 #pragma once
 #include <stdint.h>
@@ -39,7 +43,7 @@
 #define GX_PC_ANALOG ((1u << 0) | (1u << 1) | (1u << 9) | (1u << 10))
 #define GX_PC_JACKS ((1u << 5) | (1u << 6))
 
-enum { GX_KNOB_LEFT_BOTTOM, GX_KNOB_LEFT_TOP, GX_KNOB_MIDDLE_RIGHT, GX_KNOB_RIGHT_TOP,
+enum { GX_KNOB_LEFT_BOTTOM, GX_KNOB_LEFT_TOP, GX_KNOB_RIGHT_BOTTOM, GX_KNOB_RIGHT_TOP,
        GX_KNOB_SELECTOR, GX_KNOB_MIDDLE_BOTTOM, GX_KNOBS };
 #define GX_KNOB_ADC(i) (4u + (i))
 enum { GX_SW_LEFT = 1, GX_SW_RIGHT = 2 };          /* gx_in.switches bits */
@@ -77,6 +81,24 @@ static void gx_led(int red, int green)
     if (green)
         out &= ~(1u << 3);
     FM1_PR(FM1_PA, FM1_OUT) = out;
+}
+
+/* The selector's reading at each of its nine detents, left to right (measured 2026-10-31): closer
+ * together at the ends. gx_selector_position(raw, current) gives the detent, 0..8; it leaves the current
+ * one only a margin past the midpoint to a neighbour, so noise cannot make it flicker. */
+#define GX_SELECTOR_POSITIONS 9u
+static const uint16_t gx_selector_detent[GX_SELECTOR_POSITIONS] = {0, 72, 238, 392, 524, 663, 807, 974, 1023};
+
+static uint32_t gx_selector_position(uint32_t raw, uint32_t current)
+{
+    const uint32_t margin = 8u;
+    uint32_t p = current < GX_SELECTOR_POSITIONS ? current : 0u;
+    while (p + 1u < GX_SELECTOR_POSITIONS &&
+           raw > (gx_selector_detent[p] + gx_selector_detent[p + 1u]) / 2u + margin)
+        p++;
+    while (p > 0u && raw + margin < (gx_selector_detent[p - 1u] + gx_selector_detent[p]) / 2u)
+        p--;
+    return p;
 }
 
 static void gx_board_init(void)
