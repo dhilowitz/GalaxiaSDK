@@ -24,7 +24,7 @@ install and restore firmware over USB. No soldering, no programmer.
 | `examples/passthrough/` | The smallest firmware: input to output, a mute footswitch. |
 | `examples/reverb/` | A stereo reverb (8-line feedback delay network) with bypass, freeze, five knobs and room size on the selector. |
 | `examples/diag/` | Audio link check: a 1 kHz tone on the left output, the raw input words and buffer counters on the console. |
-| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image). |
+| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image), `get_toolchain.sh`. |
 | `docs/` | [HARDWARE.md](docs/HARDWARE.md), [INSTALL.md](docs/INSTALL.md). |
 
 ## The hardware in short
@@ -36,15 +36,15 @@ The reverb example takes 13 % of the audio block. Details in [docs/HARDWARE.md](
 
 ## Build
 
-Needs Linux x86-64 (or Docker), Python 3 and JieLi's toolchain (clang 4.0.1 for pi32v2):
+Needs Linux x86-64 (or Docker), Python 3 and JieLi's toolchain (clang 4.0.1 for pi32v2), which
+`tools/get_toolchain.sh` downloads from JieLi's package server:
 
 ```
 git clone --recurse-submodules <this repository>
+cd GalaxiaSDK
+tools/get_toolchain.sh                                   # -> ~/.jieli/toolchain
 JIELI_TOOLCHAIN=~/.jieli/toolchain ./build.sh reverb     # -> build/reverb/reverb.bin
 ```
-
-felucca-bsp's [Felucca](https://github.com/hugelton/Felucca) has `tools/get_toolchain.sh`, which
-fetches the toolchain from JieLi's package server.
 
 ## Install
 

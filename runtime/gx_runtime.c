@@ -36,6 +36,7 @@
  * 0.5 s), the watchdog, the fault report, and the boot guard: two starts in a row that never reach 2 s
  * of running drop into the ROM bootloader, so a broken build can always be replaced over USB. */
 #include <stdint.h>
+#define GX_SDK_VERSION "0.1.0"                  /* CHANGELOG.md */
 #ifndef GX_USB_PRODUCT
 #define GX_USB_PRODUCT "Galaxia"
 #endif
@@ -220,7 +221,7 @@ static void runtime_command(const char *s, uint32_t n)
 {
     switch (s[0]) {
     case 'h':
-        gx_puts("h help, p status, c last crash, u bootloader, r reboot\r\n");
+        gx_puts("Galaxia SDK " GX_SDK_VERSION ": h help, p status, c last crash, u bootloader, r reboot\r\n");
         (void)app_command(s, n);                /* the application may add its own help */
         return;
     case 'p': status(); return;
