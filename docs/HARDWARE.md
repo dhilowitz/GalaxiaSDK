@@ -52,17 +52,15 @@ channel 8 is not.
 | Double buffer | ALNK_CON0 bits 12-15 show each lane's current DMA half; the free half is the other one. Lanes 0 and 1 use bits 12 and 13 (felucca-bsp's FM-1 code reads bit 15, its lane 3: on the Galaxia that bit never changes) |
 | Measured | `examples/diag`'s 1 kHz tone, left output -> audio interface: clean, no block-rate sidebands; input noise ~-98 dBFS |
 
-## Known problem: no start from power-off
-
-An SDK firmware does not start when the pedal is powered up: the boot loader in flash goes to the ROM
-bootloader without entering the firmware (its first instruction never runs). Restarts work (the
-console's `r`, and `gx_flash.py run` from the bootloader). The stock firmware, and test builds made with
-M-VAVE's own kit, do start from power-off, so the difference is in the image; not found yet.
-
 ## Debugging notes
 
 - The ROM bootloader's memory read returns scrambled data, and the USB loader that `gx_flash.py` uploads
-  (to 0x01C02000) overwrites RAM up to about 0x01C08000. Read RAM through the loader, above that.
+  (to 0x01C02000) overwrites RAM up to about 0x01C08000, and also around 0x01C7C180. Read RAM through
+  the loader. The runtime leaves its boot progress at 0x01C7D000 (magic "GXDB", start count, stage,
+  reset reasons), which survives both.
+- RAM is random after power-up, and the P33 reset source says so (bit 0 power-on, bit 1 VDDIO came up):
+  anything kept in `.noinit` across resets must be checked against both, and declared volatile so the
+  compiler cannot shrink a magic word.
 - The first restart after installing from the stock firmware can return to the bootloader: its soft key
   leaves "usb_update_mode" at 0x01C7FD80. `gx_flash.py` clears it before restarting.
 - On a Linux desktop, PulseAudio or PipeWire may hold the pedal's USB audio; record through it

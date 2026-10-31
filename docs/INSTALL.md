@@ -63,21 +63,11 @@ python3 tools/gx_softkey.py
 python3 tools/gx_flash.py restore my-galaxia.bin
 ```
 
-## After a power-up: `gx_flash.py run`
-
-Known problem: an SDK firmware does not start when the pedal is powered up (it ends up in the
-bootloader, `WL82 UBOOT1.00`). Until that is fixed, start it from the bootloader, which writes nothing:
-
-```
-python3 tools/gx_flash.py run
-```
-
-Once running, it keeps running until the power goes off. The stock firmware is not affected.
-
 ## If a firmware does not start
 
 A Galaxia SDK firmware that fails to reach two seconds of running twice in a row restarts into the
-bootloader by itself: run `gx_flash.py install` (or `restore`) again; no soft key needed. A firmware
+bootloader by itself: run `gx_flash.py install` (or `restore`) again; no soft key needed. To start the
+firmware already on the pedal without writing anything, `gx_flash.py run`. A firmware
 that runs but misbehaves still answers the soft key and the console's `u`.
 
 The bootloader is in the chip's ROM: writing the app area cannot remove it, and `gx_flash.py` never

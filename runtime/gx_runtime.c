@@ -74,12 +74,14 @@ extern uint32_t _rt_start[], _rt_end[], _rt_load[];
 
 static volatile uint32_t ms;
 static uint32_t boots_ok;
-static struct { uint32_t magic, pending, failed; } guard __attribute__((section(".noinit")));
+/* The boot guard's state survives resets but not power: after power-up it is random. volatile, so the
+ * compiler keeps the full magic word (it once shrank it to a byte flag that random RAM passed). */
+static volatile struct { uint32_t magic, pending, failed; } guard __attribute__((section(".noinit")));
 static uint32_t gx_ms(void) { return ms; }
 
-/* Boot progress, readable from the ROM bootloader (jl-uboot-tool mem_read) after a failed start:
- * the unused gap between RAMTEXT and RAM, next to crt0's STATUS words at 0x01C07F00. */
-#define GX_DBG ((volatile uint32_t *)0x01C07F40u)
+/* Boot progress, readable after a failed start through the USB loader gx_flash.py uploads: in the
+ * no-init area, which neither that loader (it overwrites RAM up to about 0x01C08000) nor a reset clears. */
+#define GX_DBG ((volatile uint32_t *)0x01C7D000u)
 enum { DBG_MAGIC, DBG_BOOTS, DBG_STAGE, DBG_MS, DBG_P3RST, DBG_RSTSRC, DBG_AUDIO, DBG_TICKS, DBG_N };
 #define DBG_MAGIC_VALUE 0x47584442u                     /* "GXDB" */
 static void stage(uint32_t s) { GX_DBG[DBG_STAGE] = s; }
@@ -327,7 +329,8 @@ void fm1_cstart(void)
     stage(3);
     fm1_wdt_arm(0x0D);
     stage(4);
-    if (guard.magic != 0x47584231u) {           /* "GXB1" */
+    /* a power-on reset (P33 reset source bit 0, or bit 1: VDDIO came up) starts the count afresh */
+    if (guard.magic != 0x47584231u || (fm1_boot.p3_rst & 3u) || guard.failed > 2u) {   /* "GXB1" */
         guard.magic = 0x47584231u;
         guard.failed = 0;
         guard.pending = 0;

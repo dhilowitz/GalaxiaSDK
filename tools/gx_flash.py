@@ -14,9 +14,7 @@ Linux only for now (jl-uboot-tool's SCSI access; run as a user allowed to open t
   gx_flash.py install APP.bin BACKUP.bin   build an image from APP.bin (build/<example>/<example>.bin)
                                            with your backup's boot head, write it, verify it, restart
   gx_flash.py restore BACKUP.bin           put the backed-up firmware back, verify it, restart
-  gx_flash.py run                          restart the firmware already on the pedal (nothing written):
-                                           an SDK firmware does not start from power-off yet, see
-                                           docs/INSTALL.md
+  gx_flash.py run                          restart the firmware already on the pedal (nothing written)
 
 The boot head (0x0000-0x3FFF: the boot loader and its settings) and the factory key area
 (0xFF000-0xFFFFF) are never erased or written.

@@ -34,11 +34,6 @@ RAM, an external stereo converter at 44.1 kHz. With the runtime and USB, an effe
 of RAM** for its buffers (the reverb example uses 116 KiB of it) and runs every 128 frames.
 The reverb example takes 13 % of the audio block. Details in [docs/HARDWARE.md](docs/HARDWARE.md).
 
-> [!IMPORTANT]
-> **Known problem:** an SDK firmware does not yet start when the pedal is powered up; the pedal comes up
-> in its bootloader instead. `python3 tools/gx_flash.py run` starts it (see
-> [docs/INSTALL.md](docs/INSTALL.md)). Restarts from the firmware itself work.
-
 ## Build
 
 Needs Linux x86-64 (or Docker), Python 3 and JieLi's toolchain (clang 4.0.1 for pi32v2):
