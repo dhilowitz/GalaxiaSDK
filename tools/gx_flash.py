@@ -154,7 +154,21 @@ class Pedal:
         print("restarting")
 
 
+def need_modules():
+    missing = []
+    for m in ("yaml", "crcmod"):
+        try:
+            __import__(m)
+        except ImportError:
+            missing.append(m)
+    if missing:
+        raise SystemExit("gx_flash.py needs the Python modules pyyaml and crcmod (missing: %s). Debian/Ubuntu: "
+                         "sudo apt install python3-yaml python3-crcmod; elsewhere: pip install pyyaml crcmod"
+                         % ", ".join(missing))
+
+
 def main():
+    need_modules()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("backup"); b.add_argument("out")

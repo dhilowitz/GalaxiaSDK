@@ -29,7 +29,8 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="1209", MODE="0660", GROUP="plugdev"
 then `sudo udevadm control --reload-rules && sudo udevadm trigger`. The `sg` kernel module must be
 loaded (`sudo modprobe sg` if `/sys/class/scsi_generic` is missing).
 
-Python needs `pyyaml` and `crcmod` (jl-uboot-tool's requirements).
+Python needs `pyyaml` and `crcmod` (jl-uboot-tool's requirements): on Debian or Ubuntu
+`sudo apt install python3-yaml python3-crcmod`, elsewhere `pip install pyyaml crcmod`.
 
 ## 1. Back up your pedal (do not skip)
 
