@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 # your pedal's backup is M-VAVE's firmware: never commit one
 *.bin
+# update packages hold JieLi's cfg_tool.bin: build them, do not commit them
+*.fwsc

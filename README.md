@@ -24,7 +24,8 @@ install and restore firmware over USB. No soldering, no programmer.
 | `examples/passthrough/` | The smallest firmware: input to output, a mute footswitch. |
 | `examples/reverb/` | A stereo reverb (8-line feedback delay network) with bypass, freeze, five knobs and room size on the selector. |
 | `examples/diag/` | Audio link check: a 1 kHz tone on the left output, the raw input words and buffer counters on the console. |
-| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image), `get_toolchain.sh`. |
+| `loader/` | The update loader for updates over USB MIDI (felucca-bsp's, with the Galaxia's LED and names): `build/loader/ota.bin`. |
+| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image), `gx_pkg.py` and `gx_update.py` (update packages, installed over USB MIDI; experimental), `get_toolchain.sh`. |
 | `docs/` | [HARDWARE.md](docs/HARDWARE.md), [INSTALL.md](docs/INSTALL.md). |
 
 ## The hardware in short

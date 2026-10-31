@@ -17,6 +17,8 @@ Everything here was checked on a real pedal (2026-10-30 and 31). Pin numbers use
 | RAM | 0x01C00000-0x01C7FFFF; with the runtime: 24 KiB RAM code window, 432 KiB for data and buffers, two 24 KiB stacks |
 | Boot | ROM -> the boot loader in flash (0x0000-0x3FFF, with its settings) -> app at 0x02000120 |
 | Bootloader | ROM USB loader, "WL82 UBOOT1.00" (4c4a:8057): entered by the soft key SysEx F0 22 24 35 7D F7, or by the request "usb_update_mode" at 0x01C7FD80 and a PMU reset |
+| Flash layout | 0x0000-0x3FFF boot head (never written); 0x4000-0x7BFFF app area (the app, then its VM and BTIF regions); 0x7C000-0xFEFFF user region, blank on a stock pedal; 0xFF000 key area. Updates over MIDI rewrite 0x4000-0x92FFF (blank above 0x7C000) and stage their loader at 0xE0000-0xE4FFF: a firmware keeps its own data out of both |
+| Update record | 112 bytes at 0x01C7FD88 (CRC16 over 78 bytes from +2, "AT" at +6, the loader's flash address at +72): the boot loader then loads the update loader to 0x01C0A800. It also scans the flash from the top, every 4 KiB minus 256 bytes, for a flash copy (checked in its code, 2026-10-31) |
 
 ## Controls
 

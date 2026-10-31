@@ -74,6 +74,32 @@ app area, reads it back, and restarts. The pedal comes back as a USB MIDI + audi
 (`Galaxia Reverb` for the example). The serial console (`/dev/ttyACM0`, any speed) prints a status
 line twice a second; `h` lists its commands.
 
+## Updating over USB MIDI (experimental)
+
+Once a Galaxia SDK firmware is on the pedal, the next one can go on over USB MIDI, with no bootloader and no
+sudo, on Linux, macOS or Windows. It uses the update protocol of M-VAVE's own updater, as felucca-bsp
+implements it. Make a package from the app, then install it:
+
+```
+python3 tools/gx_pkg.py package build/reverb/reverb.bin reverb.fwsc --cfg-tool-from my-galaxia.bin
+pip install mido python-rtmidi                      # once
+python3 tools/gx_update.py reverb.fwsc
+```
+
+The firmware checks the package and restarts into the update loader (`Galaxia Update`; LED red,
+flickering green), which reads the whole package before erasing anything, writes the app area and
+restarts into the new firmware. If it stops part way, run the same command again: the loader finishes the
+write. `gx_update.py --info` says what the pedal runs. A pedal on M-VAVE's firmware is never sent the
+upgrade command; install the first SDK firmware with `gx_flash.py`. An update takes about a minute. macOS
+may keep showing the MIDI port under the firmware's earlier name until the pedal is replugged.
+
+A package holds the app area and the update loader (`build/loader/ota.bin`, built with every example), plus
+JieLi's `cfg_tool.bin` (Apache-2.0), taken from your backup (`--cfg-tool-from`) or from JieLi's AC79 SDK
+(`--cfg-tool`): it is the same file on every Galaxia. It holds nothing else from M-VAVE or JieLi.
+
+For testing, `d` and Enter on the console makes the next update a dry run: the firmware checks the package
+and stages the loader, then erases it and carries on (the updater then reports that no loader appeared).
+
 ## 3. Back to stock
 
 ```

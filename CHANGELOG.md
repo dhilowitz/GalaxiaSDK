@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Updates over USB MIDI** (experimental; works on a pedal: reverb and Colorways installed this way, about a minute each): SDK firmware answers the update protocol
+  of M-VAVE's own updater (felucca-bsp's `chip/ota.c`); `tools/gx_pkg.py` makes a package, `tools/gx_update.py`
+  installs it with no bootloader or sudo. A Galaxia update loader (`loader/gx_loader.c`, from felucca-bsp's) is
+  built with every example. The firmware's identity is `SDK-Galaxia_900` (`GX_UPDATE_ID`); console `d` makes the
+  next update a dry run. Checked on the desktop: felucca-bsp's device code, fed a package, leaves the flash
+  byte for byte as `gx_flash.py install` does (`tests/update_test.py` covers the host side).
 - **Install from macOS**: `gx_flash.py` drives the bootloader over libusb on a Mac (run with sudo; macOS's
   disk driver holds the device otherwise). Backup and install tested on an Apple silicon Mac. Files
   written under sudo belong to the user who ran it.

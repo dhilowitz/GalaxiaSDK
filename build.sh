@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
-# Build an example: build/<name>/<name>.bin (app.bin: offset 0 runs at 0x02000120).
+# Build an example: build/<name>/<name>.bin (app.bin: offset 0 runs at 0x02000120), and the update loader,
+# build/loader/ota.bin (tools/gx_pkg.py package makes an update package from the two).
 #   JIELI_TOOLCHAIN=~/.jieli/toolchain ./build.sh reverb
 # Every .c file in examples/<name>/ is compiled; main.c includes runtime/gx_runtime.c.
 # Files named fx_*.c (the DSP) are compiled for speed (-O2), the rest for size (-Os).
@@ -54,3 +55,17 @@ ram = sym("_bss_end") - 0x01C08000
 print(f"{name}.bin: {len(img)} bytes; RAM {ram} of {0x6C000} bytes used ({(0x6C000 - ram) // 1024} KiB free), "
       f"RAM code {sym('_rt_end') - sym('_rt_start')} of 24576")
 PY
+
+# The update loader (loader/gx_loader.c), the same for every firmware: build/loader/ota.bin, which
+# tools/gx_pkg.py puts in update packages. A RAM image: nothing in it may run from flash.
+L="$ROOT/build/loader"
+mkdir -p "$L"
+$CC -c "$BSP/loader/crt0_ldr.S" -o "$L/crt0_ldr.o"
+$CC $CFLAGS -Os -I$BSP/chip -I$BSP/loader -c "$ROOT/loader/gx_loader.c" -o "$L/gx_loader.o"
+"$TC/pi32v2/bin/ld" --gc-sections -e _start -T "$BSP/loader/loader.ld" "$L/crt0_ldr.o" "$L/gx_loader.o" -o "$L/loader.elf"
+"$TC/common/bin/objcopy" -O binary -j .text "$L/loader.elf" "$L/loader.bin"
+"$TC/common/bin/objdump" -h "$L/loader.elf" | python3 -c '
+import sys
+bad = [p[1] for p in (l.split() for l in sys.stdin) if len(p) > 3 and p[1].startswith(".") and int(p[2], 16) and int(p[3], 16) >= 0x02000000]
+sys.exit("build.sh: loader sections outside RAM: %s" % bad if bad else 0)'
+python3 "$ROOT/tools/gx_pkg.py" loader "$L/loader.bin" "$L/ota.bin"

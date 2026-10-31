@@ -43,8 +43,24 @@
 #ifndef GX_USB_PID
 #define GX_USB_PID 0x0007
 #endif
+/* Updates over USB MIDI (M-UPGRADE, the protocol of M-VAVE's own updater; tools/gx_update.py): on unless
+ * GX_MIDI_UPDATE is 0. GX_UPDATE_ID is the identity the firmware answers with, and its packages' (gx_pkg.py
+ * reads it from the app): "SDK-Galaxia_<number>". The stock firmware is "Galaxia_002", a different model, so
+ * the updater never mistakes one for the other (and the package format cannot spell "Galaxia" alone). */
+#ifndef GX_MIDI_UPDATE
+#define GX_MIDI_UPDATE 1
+#endif
+#ifndef GX_UPDATE_ID
+#define GX_UPDATE_ID "SDK-Galaxia_900"
+#endif
 #define FELUCCA_CDC 1
-#define FELUCCA_OTA 0
+#define FELUCCA_OTA GX_MIDI_UPDATE
+#define FELUCCA_ID GX_UPDATE_ID
+/* the update record in RAM only, for now: a power cycle before the loader finishes returns to this firmware
+ * instead of resuming the update (the flash copy, for resuming, comes once the loader is proven) */
+#ifndef FELUCCA_OTA_RAMONLY
+#define FELUCCA_OTA_RAMONLY 1
+#endif
 #define FELUCCA_UAC 1
 #define FELUCCA_UAC_OUT 1
 #define FELUCCA_UAC_48K 0
@@ -60,6 +76,7 @@
 #include "fm1_guard.h"
 #include "fm1_timer.h"
 #include "gx_board.h"
+#define FL_RANGE_OK(off, n) FL_IN(off, n, FL_OTA_LO, FL_OTA_HI)   /* the runtime writes the update staging only */
 #include "fm1_flash.h"
 #include "libc.c"
 #include "usb.c"
@@ -75,6 +92,8 @@ extern uint32_t _rt_start[], _rt_end[], _rt_load[];
 
 static volatile uint32_t ms;
 static uint32_t boots_ok;
+static volatile uint32_t gx_updating;           /* an update session runs: silence, the LED shows it */
+static uint32_t gx_update_dry;                  /* console 'd': the next update stops before the restart */
 /* The boot guard's state survives resets but not power: after power-up it is random. volatile, so the
  * compiler keeps the full magic word (it once shrank it to a byte flag that random RAM passed). */
 static volatile struct { uint32_t magic, pending, failed; } guard __attribute__((section(".noinit")));
@@ -114,7 +133,11 @@ void fm1_alnk0_irq(void)
         work[i] = (int32_t)((uint32_t)in[i] << 8) >> 8;
     uac_render_start();
     uac_play(work, HALF_FRAMES, 4096u);                 /* the computer's audio joins the input */
-    app_audio(work, &tx_buf[half * HALF_WORDS], HALF_FRAMES);
+    if (gx_updating)
+        for (i = 0; i < HALF_WORDS; i++)
+            tx_buf[half * HALF_WORDS + i] = 0;
+    else
+        app_audio(work, &tx_buf[half * HALF_WORDS], HALF_FRAMES);
     uac_tap(&tx_buf[half * HALF_WORDS], HALF_FRAMES);   /* and the output goes back to it */
     if (gx_audio_free_half() != half)
         load.late++;                                    /* the DMA moved on while we rendered */
@@ -217,11 +240,87 @@ static void status(void)
     gx_puts("\r\n");
 }
 
+#if GX_MIDI_UPDATE
+/* ---- updates over USB MIDI: the hooks bsp/chip/ota.c takes (usb.c has the SysEx frame ones). The firmware
+ * checks the package, stages its update loader in flash 0xE0000..0xE4FFF, and on the host's go restarts into
+ * it through an update record; the loader then writes the app area. ---- */
+static uint32_t ota_now_ms(void) { return ms; }
+static void ota_idle(void)
+{
+    fm1_wdt_feed();
+    usb_retry(ms);
+}
+static int ota_erase(uint32_t off)
+{
+    uint32_t took;
+    if (!FL_RANGE_OK(off, 0x1000u) || (off & 0xFFFu))
+        return -8;
+    return fl_erase4k(off, &took);
+}
+static int ota_prog(uint32_t off, const void *p, uint32_t n)
+{
+    if (!FL_RANGE_OK(off, n))
+        return -8;
+    return fl_write(off, (const uint8_t *)p, n);
+}
+static int ota_fread(uint32_t off, void *p, uint32_t n)
+{
+    uint32_t f = irq_save();
+    int rc = FL_FAR(fl_read_ram)(off, (uint8_t *)p, n);
+    irq_restore(f);
+    return rc;
+}
+static void ota_show(uint32_t step, int32_t code)   /* amber while it runs; red blinks: it stopped, nothing changed */
+{
+    uint32_t i;
+    (void)code;
+    if (step < 9u) {
+        gx_led(1, 1);
+        return;
+    }
+    for (i = 0; i < 6u; i++) {
+        gx_led(!(i & 1u), 0);
+        fm1_delay_ms(150);
+        fm1_wdt_feed();
+    }
+}
+static void ota_commit(const uint8_t *parm)
+{
+    if (gx_update_dry) {                        /* checked and staged; update_session() erases the staging */
+        gx_puts("update dry run: the package checked and the loader staged; not restarting\r\n");
+        return;
+    }
+    guard.pending = 0;                          /* a restart on purpose, not a failed start */
+    usb_detach();
+    fm1_delay_ms(30);
+    fm1_enter_update(parm);                     /* the record into RAM, core reset: the boot loader runs ours */
+}
+#include "ota.c"
+
+static void update_session(void)                /* returns only if nothing was committed */
+{
+    uint32_t i;
+    gx_updating = 1;
+    for (i = 0; i < 2u * HALF_WORDS; i++)
+        tx_buf[i] = 0;
+    ota_session();
+    if (gx_update_dry) {
+        ota_unstage();
+        gx_update_dry = 0;
+    }
+    gx_updating = 0;
+}
+#endif
+
 static void runtime_command(const char *s, uint32_t n)
 {
     switch (s[0]) {
     case 'h':
-        gx_puts("Galaxia SDK " GX_SDK_VERSION ": h help, p status, c last crash, u bootloader, r reboot\r\n");
+        gx_puts("Galaxia SDK " GX_SDK_VERSION ": h help, p status, c last crash, u bootloader, r reboot"
+#if GX_MIDI_UPDATE
+                ", d (then Enter) next MIDI update a dry run"
+#endif
+                "\r\n");
         (void)app_command(s, n);                /* the application may add its own help */
         return;
     case 'p': status(); return;
@@ -246,6 +345,15 @@ static void runtime_command(const char *s, uint32_t n)
         usb_detach();
         fm1_reboot();
         return;
+#if GX_MIDI_UPDATE
+    case 'd':
+        if (n == 1u) {
+            gx_update_dry = 1;
+            gx_puts("the next update over MIDI is a dry run (checks, stages, erases; no restart)\r\n");
+            return;
+        }
+        break;
+#endif
     }
     if (app_command(s, n))
         gx_puts("ok\r\n");
@@ -289,6 +397,9 @@ static void app_main(void)
     stage(25);
     fm1_irq_enable_all();
     stage(26);
+#if GX_MIDI_UPDATE
+    ota_boot_cleanup();                         /* we run: an update finished or never started */
+#endif
     for (;;) {
         uint32_t now = ms;
         GX_DBG[DBG_MS] = now;
@@ -296,6 +407,13 @@ static void app_main(void)
         usb_retry(now);
         if (usb.uboot_req)                      /* the SysEx soft key */
             runtime_command("u", 1);
+#if GX_MIDI_UPDATE
+        ota_service();                          /* the updater's handshake */
+        if (usb.ota_req) {                      /* and its upgrade command */
+            usb.ota_req = 0;
+            update_session();
+        }
+#endif
         if (!boots_ok && now > 2000u) {         /* it runs: the next boot is not a loop */
             boots_ok = 1;
             guard.pending = 0;
