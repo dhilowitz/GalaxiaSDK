@@ -89,8 +89,9 @@ python3 tools/gx_update.py reverb.fwsc
 The firmware checks the package and restarts into the update loader (`Galaxia Update`; LED red,
 flickering green), which reads the whole package before erasing anything, writes the app area and
 restarts into the new firmware. If it stops part way, run the same command again: the loader finishes the
-write. `gx_update.py --info` says what the pedal runs. A pedal on M-VAVE's firmware is never sent the
-upgrade command; install the first SDK firmware with `gx_flash.py`. An update takes about a minute. macOS
+write, as long as the pedal stayed powered: a power cut while the loader writes leaves a half-written firmware
+(then use `gx_flash.py`; see "If a firmware does not start"). `gx_update.py --info` says what the pedal runs. A pedal on M-VAVE's firmware is never sent the
+upgrade command; install the first SDK firmware with `gx_flash.py`. An update takes about half a minute (`--slow` waits before each reply, if one ever stalls). macOS
 may keep showing the MIDI port under the firmware's earlier name until the pedal is replugged.
 
 A package holds the app area and the update loader (`build/loader/ota.bin`, built with every example), plus

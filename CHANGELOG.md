@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Updates over USB MIDI** (experimental; works on a pedal: reverb and Colorways installed this way, about a minute each): SDK firmware answers the update protocol
+- **Updates over USB MIDI** (experimental; works on a pedal: reverb and Colorways installed this way, about half a minute each): SDK firmware answers the update protocol
   of M-VAVE's own updater (felucca-bsp's `chip/ota.c`); `tools/gx_pkg.py` makes a package, `tools/gx_update.py`
   installs it with no bootloader or sudo. A Galaxia update loader (`loader/gx_loader.c`, from felucca-bsp's) is
   built with every example. The firmware's identity is `SDK-Galaxia_900` (`GX_UPDATE_ID`); console `d` makes the

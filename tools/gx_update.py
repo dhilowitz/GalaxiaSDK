@@ -4,7 +4,7 @@
 """Install a firmware on a Galaxia over USB MIDI, while a Galaxia SDK firmware runs on it: no bootloader, no
 sudo, the same on Linux, macOS and Windows.
 
-  gx_update.py PACKAGE.fwsc [--port NAME] [--yes]     (tools/gx_pkg.py package makes PACKAGE.fwsc)
+  gx_update.py PACKAGE.fwsc [--port NAME] [--yes] [--slow]     (tools/gx_pkg.py package makes it)
   gx_update.py --info [--port NAME]
 
 The running firmware checks the package and restarts into its update loader ("Galaxia Update"), which reads
@@ -27,6 +27,9 @@ import fm1_install as I  # noqa: E402
 MODEL = "SDK-Galaxia"
 # the pedal's MIDI ports: "Galaxia <name>" (SDK firmware), "Galaxia Update" (the loader); never other gear
 I.PORT_RE = re.compile(r"galaxia", re.I)
+# fm1_install waits 10 ms before each reply; a Galaxia from macOS needs none (an update: 33 s instead of 62)
+SLOW_REPLY = I.DELAY["reply"]
+I.DELAY["reply"] = 0
 
 
 class Error(Exception):
@@ -90,7 +93,11 @@ def main(argv=None, backend=None, out=sys.stdout, ask=I.ask_tty):
     ap.add_argument("--info", action="store_true", help="print what the pedal runs")
     ap.add_argument("--port", metavar="NAME", help="MIDI port to use (part of its name)")
     ap.add_argument("--yes", action="store_true", help="do not ask for confirmation")
+    ap.add_argument("--slow", action="store_true", help="wait before each reply, as fm1_install does (if an "
+                    "update stalls)")
     a = ap.parse_args(argv)
+    if a.slow:
+        I.DELAY["reply"] = SLOW_REPLY
     if bool(a.info) == bool(a.package):
         ap.error("give a PACKAGE.fwsc or --info")
     try:

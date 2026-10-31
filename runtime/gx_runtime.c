@@ -56,8 +56,10 @@
 #define FELUCCA_CDC 1
 #define FELUCCA_OTA GX_MIDI_UPDATE
 #define FELUCCA_ID GX_UPDATE_ID
-/* the update record in RAM only, for now: a power cycle before the loader finishes returns to this firmware
- * instead of resuming the update (the flash copy, for resuming, comes once the loader is proven) */
+/* the update record in RAM only. A flash copy, which felucca-bsp writes so that an update cut off by a power
+ * loss resumes, did nothing on a Galaxia: its boot loader ignored one at 0xE4F00 and at 0x7AF00 after a power
+ * cycle (2026-10-31; its scan seems to run only when something else failed). So a power cycle before the
+ * loader starts writing returns to this firmware; one during the write leaves a half-written app. */
 #ifndef FELUCCA_OTA_RAMONLY
 #define FELUCCA_OTA_RAMONLY 1
 #endif
