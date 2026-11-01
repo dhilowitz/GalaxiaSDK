@@ -24,6 +24,7 @@
  *   gx_scan_tick()             10 kHz (TIMER5): debounce switches and jacks, step the knob conversions
  *   gx_led(red, green)
  *   gx_selector_position(raw, current)   the selector's detent, 0..8 (raw: its 0..1023 reading)
+ *   gx_knob_steady(&held, raw)           a knob's value with hysteresis: steady while the knob is left alone
  */
 #pragma once
 #include <stdint.h>
@@ -81,6 +82,22 @@ static void gx_led(int red, int green)
     if (green)
         out &= ~(1u << 3);
     FM1_PR(FM1_PA, FM1_OUT) = out;
+}
+
+/* A knob's reading wanders by a few counts with nobody touching it. gx_knob_steady(&held, raw) moves the value
+ * it keeps in held only when the reading leaves it by more than that (GX_KNOB_HOLD counts), and returns it:
+ * steady when the knob is left alone, still every value when it turns, and the ends reachable. It matters
+ * wherever a value glides or is heard as a pitch (a delay time follows a jittering knob as a warble). */
+#define GX_KNOB_HOLD 4u
+static uint32_t gx_knob_steady(uint32_t *held, uint32_t raw)
+{
+    if (raw > *held + GX_KNOB_HOLD || raw + GX_KNOB_HOLD < *held)
+        *held = raw;
+    else if (raw <= GX_KNOB_HOLD)
+        *held = 0;
+    else if (raw >= 1023u - GX_KNOB_HOLD)
+        *held = 1023u;
+    return *held;
 }
 
 /* The selector's reading at each of its nine detents, left to right (measured 2026-10-31): closer

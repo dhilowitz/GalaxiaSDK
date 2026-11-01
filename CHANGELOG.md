@@ -2,10 +2,24 @@
 
 ## Unreleased
 
+- **USB audio input no longer choppy**: the audio interrupt now runs below TIMER5, whose USB service nests in the
+  render (as Felucca does). Before, a heavy effect blocked it long enough to miss USB frames: 13 % of packets
+  at the plate reverb's 27 % load, heard as choppy audio and a growing delay. Now none missed; Mac to pedal to
+  Mac measured at 8.9 ms with no gaps. The status line shows the USB audio input's counters while a computer
+  records.
+- **Knob hysteresis** (`gx_knob_steady` in `gx_board.h`): a knob left alone gives a steady value. A knob's
+  reading wanders by a few counts, and a delay time that follows it warbled. The reverb and multifx examples
+  use it.
+
 - **USB audio on macOS 13-15**: felucca-bsp updated to cd76d43 for `FELUCCA_UAC_MIDI_LAST` (the audio streaming
   interfaces right after audio control, MIDI last; Felucca #67); the runtime turns it on, with the streams first
   in the collection. The pedal now appears in macOS 15.8 as a 2-in, 2-out audio device (it did not before).
   Two apps can still keep it away: Chrome holding the device open, and Focusrite Control's background service.
+
+- **Example `multifx`**: nine effects on the selector (digital delay, tape echo, ping-pong delay, chorus,
+  flanger, phaser, tremolo/auto-pan, plate reverb after Dattorro, lo-fi), one file each, sharing one memory
+  arena; tap tempo, bypass, MIDI CCs, console overrides. `tests/mfx_render.c` renders them on a computer and
+  checks every effect at its knob extremes. On a pedal: 5 to 27 % of the audio block, none late.
 
 - **Build on macOS**: `build.sh` runs itself in a `linux/amd64` Docker container where JieLi's toolchain cannot
   run (Docker Desktop, OrbStack or Colima); `get_toolchain.sh` works on macOS. Tested on an Apple silicon Mac

@@ -23,6 +23,7 @@ install and restore firmware over USB. No soldering, no programmer.
 | `runtime/` | Everything a firmware needs besides the effect: boot, USB MIDI, USB audio both ways, a serial console, the watchdog, the fault report and a boot guard. An application defines five hooks. |
 | `examples/passthrough/` | The smallest firmware: input to output, a mute footswitch. |
 | `examples/reverb/` | A stereo reverb (8-line feedback delay network) with bypass, freeze, five knobs and room size on the selector. |
+| `examples/multifx/` | Nine effects, one per selector position: digital delay, tape echo, ping-pong delay, chorus, flanger, phaser, tremolo/auto-pan, plate reverb, lo-fi. One commented file per effect; the same knob layout for all (top-left the main control, top-right mix), tap tempo on the right footswitch. `tests/mfx_render.c` runs them on a computer. |
 | `examples/diag/` | Audio link check: a 1 kHz tone on the left output, the raw input words and buffer counters on the console. |
 | `loader/` | The update loader for updates over USB MIDI (felucca-bsp's, with the Galaxia's LED and names): `build/loader/ota.bin`. |
 | `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image), `gx_pkg.py` and `gx_update.py` (update packages, installed over USB MIDI; experimental), `get_toolchain.sh`. |

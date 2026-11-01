@@ -15,7 +15,7 @@
 enum { OV_DECAY, OV_TONE, OV_PREDELAY, OV_MIX, OV_LEVEL, OV_N };
 static int32_t override[OV_N] = {-1, -1, -1, -1, -1};
 static int32_t override_size = -1;
-static uint32_t smooth[GX_KNOBS], step, bypass, freeze_latched, sent_cc[GX_KNOBS + 1u];
+static uint32_t smooth[GX_KNOBS], step, bypass, freeze_latched, sent_cc[GX_KNOBS + 1u], held[OV_N];
 
 static void app_init(void) { rv_init(); }
 
@@ -56,7 +56,7 @@ static void app_poll(uint32_t now)
         gx_midi_cc(81, (sw & GX_SW_RIGHT) ? 127u : 0u);
     prev_sw = sw;
     for (i = 0; i < OV_N; i++)
-        v[i] = override[i] >= 0 ? (uint32_t)override[i] : smooth[knob_of[i]] >> 4;
+        v[i] = override[i] >= 0 ? (uint32_t)override[i] : gx_knob_steady(&held[i], smooth[knob_of[i]] >> 4);
     rv_ctl.decay = (uint16_t)v[OV_DECAY];
     rv_ctl.tone = (uint16_t)v[OV_TONE];
     rv_ctl.predelay = (uint16_t)v[OV_PREDELAY];

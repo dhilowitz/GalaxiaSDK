@@ -246,6 +246,13 @@ static void status(void)
     gx_putd("jacks=", gx_in.jacks);
     gx_putd("adc_timeouts=", gx_in.adc_timeouts);
     gx_putd("usb_cfg=", usb.config);
+    if (uac.alt) {                              /* the USB audio input while a computer records */
+        gx_putd("uac_pkts=", uac.pkts);
+        gx_putd("uac_missed=", uac.missed);     /* the host asked, no packet was ready */
+        gx_putd("uac_under=", uac.underruns);   /* the ring ran dry (frames repeated) */
+        gx_putd("uac_over=", uac.overruns);     /* the ring overflowed (frames dropped) */
+        gx_putd("uac_stalls=", uac.stalls);
+    }
     app_status();
     gx_puts("\r\n");
 }
@@ -401,7 +408,9 @@ static void app_main(void)
     stage(22);
     fm1_timer5_start(isr_timer5, 4);
     stage(23);
-    gx_audio_init(tx_buf, rx_buf, HALF_WORDS, isr_alnk0, 5);
+    gx_audio_init(tx_buf, rx_buf, HALF_WORDS, isr_alnk0, 3);   /* below TIMER5 (4): its USB service nests in
+                                                                * the render, or a long effect starves the USB
+                                                                * audio input of packets (as Felucca does) */
     stage(24);
     fm1_guard_lock_top();
     stage(25);
