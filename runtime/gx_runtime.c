@@ -84,7 +84,12 @@
 #include "fm1_guard.h"
 #include "fm1_timer.h"
 #include "gx_board.h"
-#define FL_RANGE_OK(off, n) FL_IN(off, n, FL_OTA_LO, FL_OTA_HI)   /* the runtime writes the update staging only */
+/* Saved settings (gx_settings_save): two 4 KiB sectors in the firmware data area above the update staging,
+ * blank on a Galaxia (outside what M-VAVE's updater and the update loader write) */
+#define GX_SET_LO 0x000F0000u
+#define GX_SET_HI 0x000F2000u
+/* the runtime writes the update staging and its saved settings only */
+#define FL_RANGE_OK(off, n) (FL_IN(off, n, FL_OTA_LO, FL_OTA_HI) || FL_IN(off, n, GX_SET_LO, GX_SET_HI))
 #include "fm1_flash.h"
 #include "libc.c"
 #include "usb.c"
@@ -227,6 +232,17 @@ static void gx_puthex(const char *k, uint32_t v)
     gx_putc(' ');
 }
 
+/* saved settings (gx_settings_save, below) */
+#define GX_SET_SLOT 32u
+#define GX_SET_SLOTS 120u                       /* 0x000..0xEFF of each sector */
+#define GX_SET_MAX 26u                          /* bytes a firmware may save */
+static struct {
+    uint8_t data[GX_SET_MAX], pending_data[GX_SET_MAX];
+    uint8_t slot[GX_SET_SLOT];                   /* the slot being written */
+    uint32_t len, pending_len, seq, have, sector, next, other_blank, pending, since, saves, last_us, failed;
+    uint32_t writing, steps, blocks, max_us;    /* a write in progress: its steps, the last audio block seen */
+} gx_set;
+
 static void status(void)
 {
     static uint32_t prev_blocks;
@@ -253,6 +269,10 @@ static void status(void)
         gx_putd("uac_over=", uac.overruns);     /* the ring overflowed (frames dropped) */
         gx_putd("uac_stalls=", uac.stalls);
     }
+    gx_putd("set_saves=", gx_set.saves);        /* saved settings: writes since power-up, the last one's time */
+    gx_putd("set_us=", gx_set.last_us);          /* the longest stall of the last write */
+    gx_putd("set_steps=", gx_set.steps);
+    gx_putd("set_failed=", gx_set.failed);
     app_status();
     gx_puts("\r\n");
 }
@@ -397,11 +417,228 @@ static void console(void)
     }
 }
 
+/* ---- saved settings: a few bytes a firmware keeps across power-off ----
+ * gx_settings_load(dst, n) at app_init gives back the last n bytes saved (1), or nothing (0: first boot, or the
+ * size changed). gx_settings_save(src, n) queues them; the runtime writes them a second after the last change,
+ * right after an audio block, so the write (about a millisecond with interrupts off) costs no audio.
+ * Each save appends one 32-byte slot to a sector; erasing (tens of ms, everything stalls) happens only at
+ * power-up, before the audio starts, which keeps the other sector blank for when this one fills (120 slots).
+ * Slots avoid each sector's last 256 bytes, where the update loader looks for an update record. */
+
+/* One step of a settings write, interrupts off, from RAM: start the page program (start) or resume it, let it
+ * run for up to budget_us, then suspend it (75h; resume 7Ah, the Puya P25Q80 and most NOR parts) and give the
+ * flash back to XIP. 0: written; 1: suspended, call again after the next audio block; < 0: error. A part that
+ * does not suspend just finishes the program here, as one longer stall. */
+static RAMFN int gx_set_step_ram(uint32_t off, const uint8_t *src, uint32_t n, uint32_t start, uint32_t budget_us)
+{
+    fl_saved_t s;
+    uint32_t t0, i, took;
+    int rc = 0;
+    if (!FL_RANGE_OK(off, n) || n == 0 || n > 256u || ((off & 0xFFu) + n) > 256u)
+        return -1;
+    if (fl_enter(&s))
+        return -2;
+    if (start) {
+        fl_wren();
+        if (!(fl_rdsr(0x05) & 2u)) {
+            fl_exit(&s);
+            return -3;
+        }
+        fl_cs(0); fl_tx(0x02); fl_addr(off);
+        for (i = 0; i < n; i++) fl_tx(src[i]);
+        fl_cs(1);
+    } else {
+        fl_cs(0); fl_tx(0x7A); fl_cs(1);          /* resume */
+    }
+    t0 = T4_CNT;
+    while (fl_rdsr(0x05) & 1u)
+        if ((T4_CNT - t0) / 24u > budget_us)
+            break;
+    if (fl_rdsr(0x05) & 1u) {                     /* still programming: suspend */
+        fl_cs(0); fl_tx(0x75); fl_cs(1);
+        t0 = T4_CNT;
+        while ((fl_rdsr(0x05) & 1u) && (T4_CNT - t0) / 24u < 200u)
+            ;
+        if (fl_rdsr(0x05) & 1u)                   /* it does not suspend: finish here */
+            rc = fl_wait_ready(10000u, &took);
+        else if (fl_rdsr(0x35) & 0x80u) {         /* SUS: suspended, readable again */
+            fl_exit(&s);
+            return 1;
+        }                                         /* else it finished meanwhile */
+    }
+    fl_inval(off, n);
+    fl_exit(&s);
+    return rc;
+}
+
+static uint16_t gx_set_crc(const uint8_t *p, uint32_t n)
+{
+    uint32_t c = 0xFFFFu, i;
+    while (n--) {
+        c ^= (uint32_t)*p++ << 8;
+        for (i = 0; i < 8u; i++)
+            c = c & 0x8000u ? (c << 1) ^ 0x1021u : c << 1;
+    }
+    return (uint16_t)c;
+}
+
+static uint32_t gx_set_addr(uint32_t sector, uint32_t slot) { return GX_SET_LO + sector * 0x1000u + slot * GX_SET_SLOT; }
+
+static int gx_set_read(uint32_t off, uint8_t *p, uint32_t n)
+{
+    uint32_t f = irq_save();
+    int rc = FL_FAR(fl_read_ram)(off, p, n);
+    irq_restore(f);
+    return rc;
+}
+
+/* at power-up, interrupts still off: find the newest slot, and make sure the other sector is blank */
+static void gx_settings_boot(void)
+{
+    static uint8_t b[GX_SET_SLOT];
+    uint32_t sec, slot, i, used[2] = {0, 0};
+    for (sec = 0; sec < 2u; sec++)
+        for (slot = 0; slot < GX_SET_SLOTS; slot++) {
+            uint32_t blank = 1;
+            gx_set_read(gx_set_addr(sec, slot), b, GX_SET_SLOT);
+            for (i = 0; i < GX_SET_SLOT; i++)
+                if (b[i] != 0xFFu)
+                    blank = 0;
+            if (blank)
+                continue;
+            used[sec] = slot + 1u;               /* the next free slot follows the last one written */
+            if (b[0] == 0x5Au && b[1] >= 1u && b[1] <= GX_SET_MAX &&
+                gx_set_crc(b, GX_SET_SLOT - 2u) == (uint16_t)(b[30] | b[31] << 8)) {
+                uint32_t seq = (uint32_t)(b[2] | b[3] << 8);
+                if (!gx_set.have || (int16_t)(uint16_t)(seq - gx_set.seq) > 0) {
+                    gx_set.have = 1;
+                    gx_set.seq = seq;
+                    gx_set.sector = sec;
+                    gx_set.len = b[1];
+                    memcpy(gx_set.data, &b[4], b[1]);
+                }
+            }
+        }
+    gx_set.next = used[gx_set.sector];
+    if (used[gx_set.sector ^ 1u]) {             /* the other sector: blank it now, while erasing is free */
+        uint32_t took;
+        fm1_wdt_feed();
+        if (fl_erase4k(gx_set_addr(gx_set.sector ^ 1u, 0), &took))
+            gx_set.failed++;
+        fm1_wdt_feed();
+    }
+    gx_set.other_blank = 1;
+}
+
+static __attribute__((unused)) int gx_settings_load(void *dst, uint32_t n)
+{
+    if (!gx_set.have || gx_set.len != n)
+        return 0;
+    memcpy(dst, gx_set.data, n);
+    return 1;
+}
+
+static __attribute__((unused)) void gx_settings_save(const void *src, uint32_t n)
+{
+    if (n < 1u || n > GX_SET_MAX)
+        return;
+    if (gx_set.pending ? gx_set.pending_len == n && !memcmp(gx_set.pending_data, src, n)
+                       : gx_set.have && gx_set.len == n && !memcmp(gx_set.data, src, n))
+        return;                                 /* nothing new */
+    memcpy(gx_set.pending_data, src, n);
+    gx_set.pending_len = n;
+    gx_set.pending = 1;
+    gx_set.since = ms;
+}
+
+static void gx_settings_service(uint32_t now)
+{
+    uint32_t i, f, t0, dt;
+    uint16_t crc;
+    int rc;
+    if (gx_set.writing) {                       /* a step after each audio block, while the most time is free */
+        if (load.blocks == gx_set.blocks)
+            return;
+        gx_set.blocks = load.blocks;
+        t0 = fm1_ticks();
+        f = irq_save();
+        rc = FL_FAR(gx_set_step_ram)(gx_set_addr(gx_set.sector, gx_set.next), gx_set.slot, GX_SET_SLOT, 0, 250u);
+        irq_restore(f);
+        dt = (fm1_ticks() - t0) / 24u;
+        if (dt > gx_set.max_us)
+            gx_set.max_us = dt;
+        gx_set.steps++;
+        if (rc == 1 && gx_set.steps < 200u)
+            return;
+        gx_set.writing = 0;
+        gx_set.next++;
+        gx_set.last_us = gx_set.max_us;
+        if (rc) {
+            gx_set.failed++;
+            return;
+        }
+        gx_set.saves++;
+        return;
+    }
+    if (!gx_set.pending || now - gx_set.since < 1000u || gx_updating)
+        return;
+    if (gx_set.next >= GX_SET_SLOTS) {          /* this sector is full: on to the blank one */
+        if (!gx_set.other_blank) {
+            gx_set.pending = 0;                 /* both full (240 saves since power-up): until the next */
+            gx_set.failed++;
+            return;
+        }
+        gx_set.sector ^= 1u;
+        gx_set.next = 0;
+        gx_set.other_blank = 0;
+    }
+    memset(gx_set.slot, 0xFF, sizeof gx_set.slot);
+    gx_set.seq = (gx_set.seq + 1u) & 0xFFFFu;
+    gx_set.slot[0] = 0x5Au;
+    gx_set.slot[1] = (uint8_t)gx_set.pending_len;
+    gx_set.slot[2] = (uint8_t)gx_set.seq;
+    gx_set.slot[3] = (uint8_t)(gx_set.seq >> 8);
+    for (i = 0; i < gx_set.pending_len; i++)
+        gx_set.slot[4 + i] = gx_set.pending_data[i];
+    crc = gx_set_crc(gx_set.slot, GX_SET_SLOT - 2u);
+    gx_set.slot[30] = (uint8_t)crc;
+    gx_set.slot[31] = (uint8_t)(crc >> 8);
+    gx_set.pending = 0;
+    gx_set.have = 1;                            /* what is saved, as soon as it is on its way (later calls with */
+    gx_set.len = gx_set.slot[1];                /* the same bytes add nothing) */
+    memcpy(gx_set.data, &gx_set.slot[4], gx_set.len);
+    i = load.blocks;                            /* start just after an audio block */
+    t0 = fm1_ticks();
+    while (load.blocks == i && fm1_ticks() - t0 < 24000u * 10u)
+        ;
+    gx_set.blocks = load.blocks;
+    gx_set.steps = 1;
+    gx_set.max_us = 0;
+    t0 = fm1_ticks();
+    f = irq_save();
+    rc = FL_FAR(gx_set_step_ram)(gx_set_addr(gx_set.sector, gx_set.next), gx_set.slot, GX_SET_SLOT, 1, 250u);
+    irq_restore(f);
+    gx_set.max_us = (fm1_ticks() - t0) / 24u;
+    gx_set.writing = 1;
+    if (rc != 1) {                              /* done (or failed) in one step */
+        gx_set.blocks = load.blocks - 1u;       /* finish on the next call */
+        gx_set.writing = 0;
+        gx_set.next++;
+        gx_set.last_us = gx_set.max_us;
+        if (rc) {
+            gx_set.failed++;
+            return;
+        }
+        gx_set.saves++;
+    }
+}
+
 static void app_main(void)
 {
     uint32_t last_status = 0;
     stage(20);
     gx_board_init();
+    gx_settings_boot();
     stage(21);
     app_init();
     usb_start();
@@ -440,6 +677,7 @@ static void app_main(void)
             stage(30);
         }
         app_poll(now);
+        gx_settings_service(now);
         console();
         if (now - last_status >= 500u) {
             last_status = now;

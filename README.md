@@ -86,6 +86,12 @@ static void app_status(void) { }
 `runtime/gx_runtime.c` documents the hooks and services. Keep floating-point code in the audio
 interrupt (`app_audio` and what it calls): the interrupt entry does not save FPU state.
 
+To keep a few settings across power-off (up to 26 bytes, such as a footswitch mode), call
+`gx_settings_load(&s, sizeof s)` in `app_init` (1 if it found them) and `gx_settings_save(&s, sizeof s)`
+whenever they may have changed: the runtime writes only changes, a second after the last one, in steps short
+enough not to cost any audio. They live in two flash sectors at 0xF0000, outside the app area, so updates over MIDI
+keep them.
+
 ## Before you distribute a firmware
 
 The runtime uses USB VID 0x1209 / PID 0x0007, a [pid.codes](https://pid.codes) **test** ID: fine on
