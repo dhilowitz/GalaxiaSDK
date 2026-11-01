@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Example effects run from flash**: the multifx effects and the reverb example no longer put their code in RAM
+  (`.ram_text`), which measured slower for every one of them, the code's fetches competing with the effect's own
+  reads of its buffers. With a 440 Hz tone in, the whole pedal's load went from 27 % to 16 % on the plate, 12 % to
+  7 % on the chorus, 9 % to 6 % on the delay; the reverb example from 13 % to 12 %.
+- **Saved settings** (`gx_settings_load`, `gx_settings_save`): up to 26 bytes kept across power-off and updates
+  over MIDI, written a second after the last change in steps short enough not to cost any audio.
+
 - **USB audio input no longer choppy**: the audio interrupt now runs below TIMER5, whose USB service nests in the
   render (as Felucca does). Before, a heavy effect blocked it long enough to miss USB frames: 13 % of packets
   at the plate reverb's 27 % load, heard as choppy audio and a growing delay. Now none missed; Mac to pedal to

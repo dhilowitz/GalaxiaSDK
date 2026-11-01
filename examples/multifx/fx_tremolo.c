@@ -14,7 +14,7 @@ struct state {
 };
 _Static_assert(sizeof(struct state) <= MFX_ARENA_BYTES, "tremolo: more than the arena");
 
-static MFX_RAM void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
+static void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
 {
     struct state *s = p;
     float rate, depth, sq, inv;

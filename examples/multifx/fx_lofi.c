@@ -21,7 +21,7 @@ static inline float quantise(float x, float levels)   /* round to the nearest of
     return (float)i / levels;
 }
 
-static MFX_RAM void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
+static void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
 {
     struct state *s = p;
     float step, levels, lp, drive, makeup;

@@ -49,7 +49,7 @@ static inline float allpass(struct mfx_fline *d, float delay, float g, float x)
     return y + g * w;
 }
 
-static MFX_RAM void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
+static void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
 {
     struct state *s = p;
     float decay, diff2, damp, pre, exc, rate;

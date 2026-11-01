@@ -2,7 +2,7 @@
  * Copyright (C) 2026 David Hilowitz */
 /* examples/multifx on a computer: each effect fed plucked-string notes (Karplus-Strong), as on the pedal
  * (128-frame blocks, signed 24-bit samples, the arena cleared between effects as the main loop does).
- *   cc -O2 -DMFX_DESKTOP -Iexamples/multifx tests/mfx_render.c examples/multifx/fx_*.c -o mfx_render
+ *   cc -O2 -Iexamples/multifx tests/mfx_render.c examples/multifx/fx_*.c -o mfx_render
  *   ./mfx_render OUTDIR        one WAV per effect at demo settings, and a check of every effect with all
  *                              its knobs at 0, at 1 and in between (finite, below clipping, not silent) */
 #include <math.h>

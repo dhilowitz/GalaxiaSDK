@@ -34,7 +34,7 @@ void mfx_cleared(void)
 
 uint32_t mfx_running(void) { return running; }
 
-MFX_RAM void mfx_process(const int32_t *in, int32_t *out, uint32_t frames, uint32_t mono_input)
+void mfx_process(const int32_t *in, int32_t *out, uint32_t frames, uint32_t mono_input)
 {
     const float to_f = 1.0f / 8388608.0f, to_i = 8388607.0f, k = 1.0f / 1023.0f;
     struct mfx_knobs kn;

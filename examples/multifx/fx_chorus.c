@@ -20,7 +20,7 @@ struct state {
 };
 _Static_assert(sizeof(struct state) <= MFX_ARENA_BYTES, "chorus: more than the arena");
 
-static MFX_RAM void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
+static void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
 {
     static const float base_ms[VOICES] = {8.0f, 11.0f, 14.5f};
     struct state *s = p;

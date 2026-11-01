@@ -25,7 +25,7 @@ static inline float coef(float hz)                     /* first-order all-pass c
     return (t - 1.0f) / (t + 1.0f);
 }
 
-static MFX_RAM void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
+static void process(void *p, float *l, float *r, uint32_t frames, const struct mfx_knobs *k)
 {
     struct state *s = p;
     float rate, octaves, fb, comp, al = 0.0f, ar = 0.0f;

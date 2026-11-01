@@ -2,11 +2,11 @@
  * Copyright (C) 2026 David Hilowitz */
 /* Galaxia stereo reverb (see fx_reverb.h). The decay setting is the T60 before the tone filter in the
  * loop, which takes a little more each pass: at 1 kHz with the tone fully up, a 3.23 s setting predicts
- * 3.15 s. Measured on a Galaxia through its analog jacks: 3.09-3.14 s, L/R correlation 0.15, 14 % of the
- * audio block. */
+ * 3.15 s. Measured on a Galaxia through its analog jacks: 3.09-3.14 s, L/R correlation 0.15, 12 % of the
+ * audio block. It runs from flash, through the cache: from RAM (.ram_text) it took 13 %, the code's fetches
+ * competing with the delay lines' reads. */
 #include "fx_reverb.h"
 
-#define RAMFN_FX __attribute__((section(".ram_text.fx"), noinline))
 #define SR 44118.0f
 #define LINES 8
 #define PREDELAY_MAX 5292u                         /* 120 ms */
@@ -43,7 +43,7 @@ void rv_init(void)
 
 /* e^x: 2^(x log2 e), the integer part in the float exponent, a 5th-order polynomial for the
  * fraction (relative error under 1e-4 over the range used here). No libm in this build. */
-static RAMFN_FX float rv_expf(float x)
+static float rv_expf(float x)
 {
     float y = x * 1.44269504f, f, p;
     int i;
@@ -61,7 +61,7 @@ static RAMFN_FX float rv_expf(float x)
     return p * s.f;
 }
 
-static RAMFN_FX float allpass(uint32_t i, float x)
+static float allpass(uint32_t i, float x)
 {
     const float g = 0.6f;
     float *b = ap_buf[i], d, v;
@@ -75,7 +75,7 @@ static RAMFN_FX float allpass(uint32_t i, float x)
     return d - g * v;
 }
 
-RAMFN_FX void rv_process(const int32_t *in, int32_t *out, uint32_t frames, uint32_t mono_input)
+void rv_process(const int32_t *in, int32_t *out, uint32_t frames, uint32_t mono_input)
 {
     const float to_f = 1.0f / 8388608.0f, to_i = 8388607.0f, k = 1.0f / 1023.0f;
     uint32_t len[LINES], i, n, pre, size_step, freeze = rv_ctl.freeze;

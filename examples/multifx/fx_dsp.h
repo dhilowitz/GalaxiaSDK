@@ -4,18 +4,16 @@
  * accurate enough for audio and cheap on the Galaxia's single-precision FPU.
  *
  * Float code runs in the audio interrupt only (it does not save the FPU state for the main loop). Plain C:
- * tests/mfx_render.c compiles the effects on a computer too (MFX_DESKTOP). */
+ * tests/mfx_render.c compiles the effects on a computer too. */
 #pragma once
 #include <stdint.h>
 
 #define MFX_SR 44118.0f                         /* the Galaxia's sample rate (gx_board.h: GX_AUDIO_RATE) */
 #define MFX_PI 3.14159265f
 
-#ifdef MFX_DESKTOP
-#define MFX_RAM
-#else
-#define MFX_RAM __attribute__((section(".ram_text.fx"), noinline))   /* run from RAM: no flash cache misses */
-#endif
+/* The effects run from flash, through the cache. They used to run from RAM (.ram_text), which measured slower
+ * for every one of them: the code's fetches then compete with the effect's own reads of its buffers. With a 440 Hz
+ * tone in, the plate took 27 % of the block from RAM and 16 % from flash, the chorus 12 % and 7 %. */
 
 static inline float mfx_clamp(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 
