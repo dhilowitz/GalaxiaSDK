@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **USB recording holds at high load fixed**: the USB audio input keeps a whole audio half more in hand
+  (felucca-bsp's `FELUCCA_UAC_DEEP`). An effect using more than about 60 % of the audio block ran it dry and the
+  recording repeated frames, heard as crackle in the recording only (Colorways' Haze, at 71 %: some 800 holds in
+  25 s). It costs 2 KB of RAM and 2.9 ms more latency to the computer.
 - **Example effects run from flash**: the multifx effects and the reverb example no longer put their code in RAM
   (`.ram_text`), which measured slower for every one of them, the code's fetches competing with the effect's own
   reads of its buffers. With a 440 Hz tone in, the whole pedal's load went from 27 % to 16 % on the plate, 12 % to

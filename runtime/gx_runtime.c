@@ -66,6 +66,12 @@
 #define FELUCCA_UAC 1
 #define FELUCCA_UAC_OUT 1
 #define FELUCCA_UAC_48K 0
+/* a whole audio half more in hand in the USB recording ring (felucca-bsp's usb.c): 2 KB of RAM and 2.9 ms more
+ * latency on the way to the computer. Without it a render longer than about 60 % of a block ran the ring dry
+ * and the recording repeated frames (Colorways' Haze at 71 %: some 30 holds a second, 2026-11-03) */
+#ifndef FELUCCA_UAC_DEEP
+#define FELUCCA_UAC_DEEP 1
+#endif
 /* the audio streaming interfaces before the MIDI one in the audio function: macOS up to 15 shows no audio
  * device otherwise (its USB audio driver stops parsing after the MIDI interface; felucca-bsp's usb.c) */
 #define FELUCCA_UAC_AS_FIRST 1
