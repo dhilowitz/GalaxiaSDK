@@ -38,6 +38,10 @@ $CC -c "$BSP/chip/crt0.S" -o "$O/crt0.o"
 $CC -c "$BSP/chip/fm1_vec.S" -o "$O/vec.o"
 $CC -c "$BSP/chip/fm1_isr.S" -o "$O/isr.o"
 OBJS=""
+if grep -q '^#define GX_CPU1 1' "$SRC/main.c"; then       # the second core's entry and stacks (felucca-bsp)
+    $CC -c "$BSP/chip/fm1_cpu1.S" -o "$O/cpu1.o"
+    OBJS="$O/cpu1.o"
+fi
 for f in "$SRC"/*.c; do
     o="$O/$(basename "$f" .c).o"
     case "$(basename "$f")" in fx_*) OPT=-O2 ;; *) OPT=-Os ;; esac

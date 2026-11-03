@@ -84,10 +84,27 @@
 #define RING_PUBLISH() __asm__ volatile("" ::: "memory")
 #define HALF_FRAMES 128u                         /* frames per DMA half (usb.c sizes its audio rings from it) */
 #define HALF_WORDS (2u * HALF_FRAMES)
+/* GX_CPU1 1 (before including this file): the second core, started at power-on before the audio (felucca-bsp's
+ * fm1_cpu1.h, from Melodee; experimental on the Galaxia). fm1_cpu1_run(fn, arg) hands it one job, fm1_cpu1_wait()
+ * waits for it. Some FM-1s' second core misreads shared RAM under load: with FM1_CPU1_FALLBACK 1 (the default
+ * here) a misread, a fault or a late job retires it and the firmware goes on with one core (fm1_cpu1_run then
+ * returns 0: do the job yourself), rather than restarting. build.sh assembles fm1_cpu1.S for it. */
+#ifndef GX_CPU1
+#define GX_CPU1 0
+#endif
+#if GX_CPU1
+#define FM1_CPU1 1
+#ifndef FM1_CPU1_FALLBACK
+#define FM1_CPU1_FALLBACK 1
+#endif
+#endif
 #include "fm1_time.h"
 #include "fm1_sys.h"
 #include "fm1_irq.h"
 #include "fm1_guard.h"
+#if GX_CPU1
+#include "fm1_cpu1.h"
+#endif
 #include "fm1_timer.h"
 #include "gx_board.h"
 /* Saved settings (gx_settings_save): two 4 KiB sectors in the firmware data area above the update staging,
@@ -288,6 +305,13 @@ static void status(void)
     gx_putd("set_us=", gx_set.last_us);          /* the longest stall of the last write */
     gx_putd("set_steps=", gx_set.steps);
     gx_putd("set_failed=", gx_set.failed);
+#if GX_CPU1
+    gx_putd("cpu1_on=", fm1_cpu1_on);
+    gx_putd("cpu1_gave_up=", fm1_cpu1_gave_up);   /* 1 misread, 2 late, 3 barred, 4 fault, 5 silent */
+    gx_putd("cpu1_jobs=", fm1_cpu1_mb.jobs);
+    gx_putd("cpu1_rejected=", fm1_cpu1_mb.rejected);
+    gx_putd("cpu1_faults=", fm1_cpu1_fault.count);
+#endif
     app_status();
     gx_puts("\r\n");
 }
@@ -665,6 +689,9 @@ static void app_main(void)
     ota_boot_cleanup();
 #endif
     stage(21);
+#if GX_CPU1
+    fm1_cpu1_start();                           /* before the audio and the timers, interrupts off (fm1_cpu1.h) */
+#endif
     app_init();
     usb_start();
     stage(22);

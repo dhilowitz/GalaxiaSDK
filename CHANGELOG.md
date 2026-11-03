@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The second core (experimental)**: `#define GX_CPU1 1` before including the runtime starts the chip's second
+  core at power-on (felucca-bsp's `fm1_cpu1.h`, from Melodee); `fm1_cpu1_run(fn, arg)` hands it a job and
+  `fm1_cpu1_wait()` waits for it. A misread, a fault or a late job retires it and the firmware goes on with one
+  core (`FM1_CPU1_FALLBACK 1`). `examples/cpu1bench` measures it: on a Galaxia, a filter load split across the two
+  cores ran 1.95 times as fast (64 biquads a channel: 41.5 % of the audio block on one core, 21.3 % on two), and
+  in verify mode about 41,000 jobs under full load with USB audio running matched CPU0's results bit for bit.
 - **Polarity**: the Galaxia's input and output stages each invert, so the effect saw an inverted input, the USB
   recording was inverted, and audio played over USB came out of the jacks inverted (jack to jack it was upright).
   The runtime now undoes both: jack to jack is unchanged, and USB audio agrees with the jacks both ways.
