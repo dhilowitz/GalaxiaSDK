@@ -25,8 +25,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "bsp" / "tools")
 import fm1_install as I  # noqa: E402
 
 MODEL = "SDK-Galaxia"
-# the pedal's MIDI ports: "Galaxia <name>" (SDK firmware), "Galaxia Update" (the loader); never other gear
-I.PORT_RE = re.compile(r"galaxia", re.I)
+# the pedal's MIDI ports: "Galaxia <name>" (SDK firmware), "Galaxia Update" (the loader), and the named firmwares
+# that drop "Galaxia" from their USB name ("Colorways"); never other gear. --port names any other.
+I.PORT_RE = re.compile(r"galaxia|colorways", re.I)
 # fm1_install waits 10 ms before each reply; a Galaxia from macOS needs none (an update: 33 s instead of 62)
 SLOW_REPLY = I.DELAY["reply"]
 I.DELAY["reply"] = 0
