@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Polarity**: the Galaxia's input and output stages each invert, so the effect saw an inverted input, the USB
+  recording was inverted, and audio played over USB came out of the jacks inverted (jack to jack it was upright).
+  The runtime now undoes both: jack to jack is unchanged, and USB audio agrees with the jacks both ways.
 - **No glitch on the first start after an update**: the firmware erases the staged update loader before the audio
   starts, not after. The erase (five flash sectors) stalled everything and cost an audio block on the first start
   after every update over MIDI.

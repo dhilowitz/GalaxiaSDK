@@ -148,8 +148,13 @@ void fm1_alnk0_irq(void)
     half = gx_audio_free_half();
     in = &rx_buf[half * HALF_WORDS];
     gx_rx_raw = in;
-    for (i = 0; i < HALF_WORDS; i++)                    /* signed 24-bit in a 32-bit word */
-        work[i] = (int32_t)((uint32_t)in[i] << 8) >> 8;
+    /* signed 24-bit in a 32-bit word. The Galaxia's input stage inverts, and so does its output stage (measured
+     * 2026-11-03: a positive click into a jack read negative, a positive sample came out negative; jack to jack it
+     * was upright): both are undone here, so the effect, the USB audio both ways and the jacks agree */
+    for (i = 0; i < HALF_WORDS; i++) {
+        int32_t v = (int32_t)((uint32_t)in[i] << 8) >> 8;
+        work[i] = v == -8388608 ? 8388607 : -v;
+    }
     uac_render_start();
 #if FELUCCA_UAC_OUT
     uac_play(work, HALF_FRAMES, 4096u);                 /* the computer's audio joins the input */
@@ -160,6 +165,10 @@ void fm1_alnk0_irq(void)
     else
         app_audio(work, &tx_buf[half * HALF_WORDS], HALF_FRAMES);
     uac_tap(&tx_buf[half * HALF_WORDS], HALF_FRAMES);   /* and the output goes back to it */
+    for (i = 0; i < HALF_WORDS; i++) {                  /* the output stage inverts it back (above) */
+        int32_t v = tx_buf[half * HALF_WORDS + i];
+        tx_buf[half * HALF_WORDS + i] = v <= -8388608 ? 8388607 : v > 8388607 ? -8388607 : -v;
+    }
     if (gx_audio_free_half() != half)
         load.late++;                                    /* the DMA moved on while we rendered */
     used = fm1_ticks() - t0;
