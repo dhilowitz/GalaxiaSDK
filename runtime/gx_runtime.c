@@ -296,9 +296,13 @@ static void ota_idle(void)
 static int ota_erase(uint32_t off)
 {
     uint32_t took;
+    int rc;
     if (!FL_RANGE_OK(off, 0x1000u) || (off & 0xFFFu))
         return -8;
-    return fl_erase4k(off, &took);
+    fm1_wdt_feed();                             /* tens of ms each, and ota_boot_cleanup erases five */
+    rc = fl_erase4k(off, &took);
+    fm1_wdt_feed();
+    return rc;
 }
 static int ota_prog(uint32_t off, const void *p, uint32_t n)
 {
@@ -645,6 +649,12 @@ static void app_main(void)
     stage(20);
     gx_board_init();
     gx_settings_boot();
+#if GX_MIDI_UPDATE
+    /* we run: an update finished or never started. After an update this erases the staged loader (five sectors,
+     * everything stalls), so it runs here, before the audio starts: later it cost a late block, a glitch on the
+     * first start after every update (2026-11-03) */
+    ota_boot_cleanup();
+#endif
     stage(21);
     app_init();
     usb_start();
@@ -659,9 +669,6 @@ static void app_main(void)
     stage(25);
     fm1_irq_enable_all();
     stage(26);
-#if GX_MIDI_UPDATE
-    ota_boot_cleanup();                         /* we run: an update finished or never started */
-#endif
     for (;;) {
         uint32_t now = ms;
         GX_DBG[DBG_MS] = now;

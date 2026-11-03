@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **No glitch on the first start after an update**: the firmware erases the staged update loader before the audio
+  starts, not after. The erase (five flash sectors) stalled everything and cost an audio block on the first start
+  after every update over MIDI.
 - **USB recording holds at high load fixed**: the USB audio input keeps a whole audio half more in hand
   (felucca-bsp's `FELUCCA_UAC_DEEP`). An effect using more than about 60 % of the audio block ran it dry and the
   recording repeated frames, heard as crackle in the recording only (Colorways' Haze, at 71 %: some 800 holds in
