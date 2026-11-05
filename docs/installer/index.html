@@ -1,0 +1,220 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0
+     Copyright (C) 2026 David Hilowitz -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxia Installer</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #fff; --fg: #1c1c1a; --dim: #66665f; --line: #d8d8d2;
+    --accent: #1f5f8b; --accent-fg: #fff; --good: #24713f; --bad: #a32a22;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151514; --panel: #20201e; --fg: #ecece6; --dim: #a3a39a; --line: #3a3a36;
+      --accent: #6db3e0; --accent-fg: #0d1a22; --good: #6fcf8f; --bad: #f0877e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151514; --panel: #20201e; --fg: #ecece6; --dim: #a3a39a; --line: #3a3a36;
+    --accent: #6db3e0; --accent-fg: #0d1a22; --good: #6fcf8f; --bad: #f0877e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 620px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1rem; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  a { color: var(--accent); }
+  .dim { color: var(--dim); font-size: .9rem; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-top: 16px; }
+  button { font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=file] { font: inherit; max-width: 100%; }
+  input[type=text] { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); max-width: 100%; }
+  progress { width: 100%; height: 12px; margin: 12px 0 4px; display: block; accent-color: var(--accent); }
+  #status { font-weight: 600; min-height: 1.5em; white-space: pre-line; overflow-wrap: anywhere; }
+  #status.good { color: var(--good); }
+  #status.bad { color: var(--bad); }
+  .result { min-height: 1.5em; margin: 8px 0 0; overflow-wrap: anywhere; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--dim); font-size: .9rem; }
+  pre { max-height: 180px; overflow: auto; font-size: .8rem; margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  footer { margin-top: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Galaxia Installer</h1>
+  <p class="dim">Install firmware built with the unofficial Galaxia SDK on an M-VAVE Galaxia pedal, over USB, from Chrome or Edge. Not made or supported by M-VAVE.</p>
+
+  <section>
+    <h2>1. The pedal</h2>
+    <p>Plug it in with a USB data cable and close other apps that use MIDI. Chrome will ask to let this page use MIDI devices.</p>
+    <button id="find">Check the pedal</button>
+    <p class="result" id="pedal"></p>
+    <details>
+      <summary>Pedal not found?</summary>
+      <p class="dim" style="margin-top:8px">The page only talks to ports named after the pedal. If your firmware's USB name doesn't include "Galaxia", enter part of its name.</p>
+      <label>Port name contains <input type="text" id="port" autocomplete="off" spellcheck="false"></label>
+    </details>
+  </section>
+
+  <section>
+    <h2>2. The firmware</h2>
+    <p>Choose a <code>.fwsc</code> package made with <code>tools/gx_pkg.py</code>. It stays in this browser and isn't uploaded.</p>
+    <input type="file" id="file" accept=".fwsc">
+    <p class="result" id="package"></p>
+  </section>
+
+  <section>
+    <h2>3. Install</h2>
+    <p>Keep the pedal powered and this page open until it finishes, about half a minute. Turn the volume down, as a new firmware can make unexpected sounds.</p>
+    <button id="go" class="primary" disabled>Install</button>
+    <progress id="bar" max="100" value="0"></progress>
+    <p id="status" role="status"></p>
+    <details>
+      <summary>Log</summary>
+      <pre id="log"></pre>
+    </details>
+  </section>
+
+  <footer class="dim">
+    <p>Experimental, with no warranty of any kind. A pedal still on M-VAVE's firmware needs its first SDK firmware installed with <code>gx_flash.py</code>, and that tool is also how you recover one that no longer starts.</p>
+    <p><strong>Going back to M-VAVE's firmware:</strong> this page can't do it. Restore the backup you made before your first install with <code>gx_flash.py restore</code>. Keep that file safe, as this project can't supply a replacement.</p>
+    <p><a href="https://github.com/dhilowitz/GalaxiaSDK/blob/main/docs/INSTALL.md">Install guide</a> · <a href="https://github.com/dhilowitz/GalaxiaSDK">Source</a> (MPL-2.0)</p>
+  </footer>
+</main>
+
+<script type="module">
+import { Updater, readPackage, modelOf, MODEL } from "./gx_update.js";
+
+const $ = (id) => document.getElementById(id);
+const WRITING_HELP = "The pedal is in update mode and will stay there until an install finishes. Replug the USB cable if it isn't found, then press Install again with the same package to finish. Keep it powered until then.";
+const ACCESSORY_HELP = "On a Mac, look for a prompt to allow the accessory. The setting is in System Settings > Privacy & Security > Allow accessories to connect.";
+const HELP = {
+  notfound: "No pedal answered. Check the USB data cable, close other apps that use MIDI, and try again.",
+  stock: "This pedal isn't running Galaxia SDK firmware, so nothing was sent. Install the first SDK firmware with gx_flash.py (see the install guide).",
+  lost: "The USB connection was lost.",
+  stopped: "The pedal stopped answering.",
+  badreq: "The pedal asked for data outside this package, so the install stopped.",
+  noloader: `The update loader didn't appear. ${ACCESSORY_HELP}`,
+  noreturn: "The firmware was written, but the pedal didn't answer afterwards. Unplug it and plug it back in. If its USB name doesn't include \"Galaxia\", it may be running fine: enter the name under \"Pedal not found?\" and check again.",
+  mismatch: "The firmware was written, but the pedal reports a different version: ",
+};
+
+let midi = null, pkg = null, busy = false;
+
+function setStatus(text, kind = "") {
+  $("status").textContent = text;
+  $("status").className = kind;
+}
+const log = (text) => { $("log").textContent += text + "\n"; };
+function lock(on) {
+  busy = on;
+  $("go").disabled = on || !pkg;
+  $("find").disabled = on;
+  $("file").disabled = on;
+  $("port").disabled = on;
+}
+window.addEventListener("beforeunload", (e) => { if (busy) { e.preventDefault(); e.returnValue = ""; } });
+
+async function getMidi() {
+  if (midi) return midi;
+  try {
+    midi = await navigator.requestMIDIAccess({ sysex: true });
+    return midi;
+  } catch (e) {
+    log(String(e));
+    throw new Error("MIDI access wasn't allowed. Allow MIDI in the site settings, in the address bar, then try again.");
+  }
+}
+
+const notFoundText = (up) => `${HELP.notfound}\nMIDI inputs: ${up.inputNames().join(", ") || "(none)"}`;
+const describe = (dev) => dev.id.loader
+  ? `${dev.id.text}, in update mode: an earlier install didn't finish (port: ${dev.name})`
+  : `${dev.id.text}, running (port: ${dev.name})`;
+
+if (!navigator.requestMIDIAccess) {
+  setStatus("This browser can't reach MIDI devices with SysEx. Open this page in Chrome or Edge, over https or localhost.", "bad");
+  $("find").disabled = true;
+  $("file").disabled = true;
+}
+
+$("find").addEventListener("click", async () => {
+  if (busy) return;
+  lock(true);
+  $("pedal").textContent = "Looking for the pedal…";
+  try {
+    const up = new Updater(await getMidi(), $("port").value);
+    const dev = await up.find();
+    if (!dev) { $("pedal").textContent = notFoundText(up); return; }
+    await dev.link.close();
+    log(`found ${dev.id.text} on ${dev.name}`);
+    $("pedal").textContent = modelOf(dev.id.text) === MODEL ? describe(dev) : `${dev.id.text} (port: ${dev.name}). ${HELP.stock}`;
+  } catch (e) {
+    $("pedal").textContent = e.message;
+  } finally {
+    lock(false);
+  }
+});
+
+$("file").addEventListener("change", async () => {
+  pkg = null;
+  lock(false);
+  $("package").textContent = "";
+  const file = $("file").files[0];
+  if (!file) return;
+  try {
+    const raw = new Uint8Array(await file.arrayBuffer());
+    const parsed = readPackage(raw);
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", raw));
+    const hex = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+    if ($("file").files[0] !== file) return;      // another file was chosen meanwhile
+    pkg = parsed;
+    $("package").textContent = `${file.name}: ${pkg.product}, ${Math.round(raw.length / 1024)} KiB, SHA-256 ${hex.slice(0, 12)}…`;
+    log(`package ${file.name} ${pkg.product} ${raw.length} bytes sha256 ${hex}`);
+    lock(false);
+  } catch (e) {
+    $("package").textContent = e.message;
+  }
+});
+
+$("go").addEventListener("click", async () => {
+  if (busy || !pkg) return;
+  lock(true);
+  let staged = false;           // the pedal is in its loader: from here on, a retry finishes the write
+  const bar = $("bar");
+  bar.value = 0;
+  setStatus("Looking for the pedal…");
+  try {
+    const up = new Updater(await getMidi(), $("port").value);
+    const dev = await up.find();
+    if (!dev) { setStatus(notFoundText(up), "bad"); return; }
+    log(`pedal ${dev.id.text} on ${dev.name}`);
+    staged = dev.id.loader;
+    await up.install(dev, pkg, (k, a) => {
+      if (k === "start") { bar.removeAttribute("value"); setStatus("Checking the package…"); log(`starting on ${a}`); }
+      if (k === "check") setStatus(`Checking the package (${a} reads)…`);
+      if (k === "loader") { staged = true; setStatus("Switching to update mode…"); log("waiting for the loader"); }
+      if (k === "write") { staged = true; bar.value = a; setStatus(`Writing ${a}%`); }
+      if (k === "reboot") { staged = false; bar.removeAttribute("value"); setStatus("Restarting…"); log("written; restarting"); }
+      if (k === "done") { bar.value = 100; setStatus(`Done. The pedal runs ${a}.`, "good"); log(`done: ${a}`); }
+    });
+  } catch (e) {
+    log(String(e && e.stack || e));
+    bar.value = 0;
+    if (e.code === "mismatch") setStatus(`${HELP.mismatch}${e.message}`, "bad");
+    else if (staged) setStatus(`${HELP[e.code] || e.message}\n${WRITING_HELP}`, "bad");
+    else if (e.code === "lost" || e.code === "stopped") setStatus(`${HELP[e.code]} Nothing was written. Press Install to try again.`, "bad");
+    else setStatus(HELP[e.code] || e.message, "bad");
+  } finally {
+    lock(false);
+  }
+});
+</script>
+</body>
+</html>

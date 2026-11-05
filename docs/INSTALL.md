@@ -98,6 +98,21 @@ A package holds the app area and the update loader (`build/loader/ota.bin`, buil
 JieLi's `cfg_tool.bin` (Apache-2.0), taken from your backup (`--cfg-tool-from`) or from JieLi's AC79 SDK
 (`--cfg-tool`): it is the same file on every Galaxia. It holds nothing else from M-VAVE or JieLi.
 
+### From Chrome or Edge
+
+[The installer page](https://dhilowitz.github.io/GalaxiaSDK/installer/) does the same install using Web MIDI, with
+nothing to install. Browsers only allow Web MIDI over https or localhost, so to run your own copy, serve it locally:
+
+```
+python3 -m http.server 8000 --bind 127.0.0.1 -d docs/installer      # then open http://localhost:8000/
+```
+
+Choose your `.fwsc` and press Install. The page accepts only Galaxia SDK packages, talks only to MIDI ports named after
+the pedal (it has a field for other port names), and never sends the upgrade command to a pedal on M-VAVE's firmware.
+If an install stops while the pedal is in update mode, press Install again with the same package. On a Mac, the update
+loader is a new USB device, so macOS may ask whether to allow it (System Settings > Privacy & Security > Allow
+accessories to connect); if the loader doesn't appear, check that first.
+
 For testing, `d` and Enter on the console makes the next update a dry run: the firmware checks the package
 and stages the loader, then erases it and carries on (the updater then reports that no loader appeared).
 
@@ -107,6 +122,9 @@ and stages the loader, then erases it and carries on (the updater then reports t
 python3 tools/gx_softkey.py
 python3 tools/gx_flash.py restore my-galaxia.bin
 ```
+
+Your backup is the way back: **keep `my-galaxia.bin` somewhere safe, with a second copy.** This project ships no M-VAVE
+firmware and can't replace a lost backup, and the installer page can't restore one.
 
 ## If a firmware does not start
 

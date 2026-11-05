@@ -27,7 +27,7 @@ install and restore firmware over USB. No soldering, no programmer.
 | `examples/diag/` | Audio link check: a 1 kHz tone on the left output, the raw input words and buffer counters on the console. |
 | `loader/` | The update loader for updates over USB MIDI (felucca-bsp's, with the Galaxia's LED and names): `build/loader/ota.bin`. |
 | `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image), `gx_pkg.py` and `gx_update.py` (update packages, installed over USB MIDI; experimental), `get_toolchain.sh`. |
-| `docs/` | [HARDWARE.md](docs/HARDWARE.md), [INSTALL.md](docs/INSTALL.md). |
+| `docs/` | [HARDWARE.md](docs/HARDWARE.md), [INSTALL.md](docs/INSTALL.md), and [`installer/`](https://dhilowitz.github.io/GalaxiaSDK/installer/), a web page that installs update packages from Chrome or Edge (experimental). |
 
 ## The hardware in short
 

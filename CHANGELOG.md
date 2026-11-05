@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Install from a web page (experimental)**: `docs/installer/` does what `gx_update.py` does, from Chrome or Edge over
+  Web MIDI. `tests/web_update_test.mjs` runs it against a simulated pedal and checks its bytes against the Python tool.
 - **The second core (experimental)**: `#define GX_CPU1 1` before including the runtime starts the chip's second
   core at power-on (felucca-bsp's `fm1_cpu1.h`, from Melodee); `fm1_cpu1_run(fn, arg)` hands it a job and
   `fm1_cpu1_wait()` waits for it. A misread, a fault or a late job retires it and the firmware goes on with one
