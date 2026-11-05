@@ -16,9 +16,9 @@ const SUCCESS = [...new TextEncoder().encode("success"), 0];
 export const MODEL = "SDK-Galaxia";
 const LOADER_MARK = new TextEncoder().encode("FELUCCA-LOADER-1");
 
-// The pedal's MIDI ports: "Galaxia <name>" (SDK firmware), "Galaxia Update" (the loader), and the named firmware
-// that drops "Galaxia" from its USB name. Other gear is never probed.
-export const PORT_RE = /galaxia|colorways/i;
+// The pedal's MIDI ports: "Galaxia <name>" (SDK firmware) and "Galaxia Update" (the loader). Other gear is never
+// probed unless the page's port field names it.
+export const PORT_RE = /galaxia/i;
 
 // milliseconds; the tests shorten them. There is no wait before a reply: a Galaxia does not need one, and a timer
 // would slow the install to a crawl in a background tab.

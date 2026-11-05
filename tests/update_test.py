@@ -141,6 +141,9 @@ def main():
     p = Pedal(image, "SDK-Galaxia_900", "Galaxia Reverb")
     rc, out = run(p, "--info")
     ok(rc == 0 and "SDK-Galaxia_900" in out and p.upgrades == 0, "--info: reports, sends nothing")
+    ok(G.port_re().search("Galaxia Update") and not G.port_re().search("My Effect"), "by default only Galaxia ports")
+    ok(G.port_re("my effect").search("My Effect") and G.port_re("my effect").search("Galaxia Update"),
+       "GX_PORTS adds ports and keeps the loader's")
     print("FAILED: %d" % failed if failed else "all passed")
     return 1 if failed else 0
 

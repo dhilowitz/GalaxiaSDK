@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Finding the pedal**: `gx_update.py` and the installer page look only for ports named "Galaxia" by default. If a
+  firmware's USB name leaves that out, use `--port NAME` or the page's port field; `GX_PORTS=NAME` keeps `gx_update.py` finding
+  it when you install from one firmware to another.
 - **Install from a web page (experimental)**: `docs/installer/` does what `gx_update.py` does, from Chrome or Edge over
   Web MIDI. `tests/web_update_test.mjs` runs it against a simulated pedal and checks its bytes against the Python tool.
 - **The second core (experimental)**: `#define GX_CPU1 1` before including the runtime starts the chip's second
@@ -18,7 +21,7 @@
   after every update over MIDI.
 - **USB recording holds at high load fixed**: the USB audio input keeps a whole audio half more in hand
   (felucca-bsp's `FELUCCA_UAC_DEEP`). An effect using more than about 60 % of the audio block ran it dry and the
-  recording repeated frames, heard as crackle in the recording only (Colorways' Haze, at 71 %: some 800 holds in
+  recording repeated frames, heard as crackle in the recording only (an effect at 71 %: some 800 holds in
   25 s). It costs 2 KB of RAM and 2.9 ms more latency to the computer.
 - **Example effects run from flash**: the multifx effects and the reverb example no longer put their code in RAM
   (`.ram_text`), which measured slower for every one of them, the code's fetches competing with the effect's own
@@ -50,7 +53,7 @@
   run (Docker Desktop, OrbStack or Colima); `get_toolchain.sh` works on macOS. Tested on an Apple silicon Mac
   with Colima and Rosetta: every example and the update loader identical to the Linux builds.
 
-- **Updates over USB MIDI** (experimental; works on a pedal: reverb and Colorways installed this way, about half a minute each): SDK firmware answers the update protocol
+- **Updates over USB MIDI** (experimental; works on a pedal: the reverb and a second firmware installed this way, about half a minute each): SDK firmware answers the update protocol
   of M-VAVE's own updater (felucca-bsp's `chip/ota.c`); `tools/gx_pkg.py` makes a package, `tools/gx_update.py`
   installs it with no bootloader or sudo. A Galaxia update loader (`loader/gx_loader.c`, from felucca-bsp's) is
   built with every example. The firmware's identity is `SDK-Galaxia_900` (`GX_UPDATE_ID`); console `d` makes the

@@ -166,13 +166,13 @@ for (let i = 0; i < 20; i++) other[i * 0x30 + 0x2F] = (("FM-1_906".charCodeAt(i)
 ok(G.productOf(other) === "FM-1_906" && refused(other), "another product's package is refused");
 
 const opts = { running: PRODUCT, after: PRODUCT };
-const fresh = (o = {}) => new Pedal(pkg.image, PRODUCT, "Galaxia Colorways", { ...opts, ...o });
+const fresh = (o = {}) => new Pedal(pkg.image, PRODUCT, "Galaxia Delay", { ...opts, ...o });
 
 // a full install
 {
   const p = fresh(), up = new G.Updater(p), steps = [];
   const dev = await up.find();
-  ok(dev && dev.id.text === PRODUCT && dev.name === "Galaxia Colorways", "the pedal is found");
+  ok(dev && dev.id.text === PRODUCT && dev.name === "Galaxia Delay", "the pedal is found");
   const got = await up.install(dev, pkg, (k, a) => steps.push([k, a]));
   ok(got === PRODUCT, "install finishes and verifies the identity");
   ok(same(p.readBack, pkg.image), "the loader read the whole package, byte for byte");

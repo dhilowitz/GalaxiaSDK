@@ -68,7 +68,7 @@
 #define FELUCCA_UAC_48K 0
 /* a whole audio half more in hand in the USB recording ring (felucca-bsp's usb.c): 2 KB of RAM and 2.9 ms more
  * latency on the way to the computer. Without it a render longer than about 60 % of a block ran the ring dry
- * and the recording repeated frames (Colorways' Haze at 71 %: some 30 holds a second, 2026-11-03) */
+ * and the recording repeated frames (an effect at 71 %: some 30 holds a second, 2026-11-03) */
 #ifndef FELUCCA_UAC_DEEP
 #define FELUCCA_UAC_DEEP 1
 #endif

@@ -18,16 +18,21 @@ Galaxia's names. Needs mido and python-rtmidi (pip install mido python-rtmidi).
 Only Galaxia SDK firmware ("SDK-Galaxia_N") is updated this way. A pedal still on M-VAVE's firmware
 ("Galaxia_002") is never sent the upgrade command: install the first SDK firmware with gx_flash.py.
 """
-import argparse, re, sys
+import argparse, os, re, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "bsp" / "tools"))
 import fm1_install as I  # noqa: E402
 
 MODEL = "SDK-Galaxia"
-# the pedal's MIDI ports: "Galaxia <name>" (SDK firmware), "Galaxia Update" (the loader), and the named firmwares
-# that drop "Galaxia" from their USB name ("Colorways"); never other gear. --port names any other.
-I.PORT_RE = re.compile(r"galaxia|colorways", re.I)
+# the pedal's MIDI ports: "Galaxia <name>" (SDK firmware) and "Galaxia Update" (the loader); never other gear.
+# --port names one other port. GX_PORTS names others to look for as well (a regular expression), for firmwares whose
+# USB name leaves out "Galaxia", so that an install from or to one finds the pedal before and after it restarts.
+def port_re(extra=""):
+    return re.compile("galaxia|" + extra if extra else "galaxia", re.I)
+
+
+I.PORT_RE = port_re(os.environ.get("GX_PORTS", ""))
 # fm1_install waits 10 ms before each reply; a Galaxia from macOS needs none (an update: 33 s instead of 62)
 SLOW_REPLY = I.DELAY["reply"]
 I.DELAY["reply"] = 0
