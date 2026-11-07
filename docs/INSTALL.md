@@ -100,8 +100,8 @@ JieLi's `cfg_tool.bin` (Apache-2.0), taken from your backup (`--cfg-tool-from`) 
 
 ### From Chrome or Edge
 
-[The installer page](https://dhilowitz.github.io/GalaxiaSDK/installer/) does the same install using Web MIDI, with
-nothing to install. Browsers only allow Web MIDI over https or localhost, so to run your own copy, serve it locally:
+`docs/installer/` does the same install from a web page, using Web MIDI, with nothing to install. Browsers only allow
+Web MIDI over https or localhost, so serve the page locally and open it:
 
 ```
 python3 -m http.server 8000 --bind 127.0.0.1 -d docs/installer      # then open http://localhost:8000/
