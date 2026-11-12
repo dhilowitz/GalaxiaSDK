@@ -1,7 +1,7 @@
 # Galaxia SDK (unofficial)
 
-Write your own firmware for the **M-VAVE Galaxia** stereo reverb pedal. This is a board port and
-runtime on top of [felucca-bsp](https://github.com/hugelton/felucca-bsp), plus the tools to back up,
+Write your own firmware for the **M-VAVE Galaxia** stereo reverb pedal, or the **M-VAVE Elemental Pro**
+stereo delay, which is the same board inside ([below](#the-elemental-pro)). This is a board port and runtime on top of [felucca-bsp](https://github.com/hugelton/felucca-bsp), plus the tools to back up,
 install and restore firmware over USB. No soldering, no programmer.
 
 > [!WARNING]
@@ -35,6 +35,14 @@ JieLi WL82 / AC791N family (pi32v2 CPU with a single-precision FPU), 1 MiB of fl
 RAM, an external stereo converter at 44.1 kHz. With the runtime and USB, an effect has **about 410 KiB
 of RAM** for its buffers (the reverb example uses 116 KiB of it) and runs every 128 frames.
 The reverb example takes 13 % of the audio block. Details in [docs/HARDWARE.md](docs/HARDWARE.md).
+
+### The Elemental Pro
+
+M-VAVE's Elemental Pro delay is built on the same board: the same chip and flash, a byte-identical boot head and
+factory key area, and a stock firmware from the same code base that sets up every pin as the Galaxia's does. Galaxia SDK
+firmware runs on it unchanged, and the tools install and restore it the same way (backup, MIDI updates both ways). Its
+knobs, footswitches and LED have not yet been checked one by one: expect each control where the Galaxia has it, which
+need not match the Elemental Pro's labels. See [docs/HARDWARE.md](docs/HARDWARE.md#the-elemental-pro).
 
 ## Build
 
