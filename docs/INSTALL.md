@@ -114,8 +114,10 @@ backup is still the fullest way back: it also keeps your pedal's own settings.
 
 ### From Chrome or Edge
 
-`docs/installer/` does the same from a web page, using Web MIDI, with nothing to install, and the way back too
-(choose M-VAVE's official file). Browsers only allow Web MIDI over https or localhost, so serve the page locally:
+[The installer page](https://dhilowitz.github.io/GalaxiaSDK/) does the same from Chrome or Edge, using Web MIDI, with
+nothing to install: it offers the Reverb and Multi-FX examples, the way back to M-VAVE's firmware (choose the official
+file) and any package of your own. It is built from `docs/installer/` by `tools/gx_install_page.py` onto the `gh-pages`
+branch. Browsers only allow Web MIDI over https or localhost, so to run your own copy, serve it locally:
 
 ```
 python3 -m http.server 8000 --bind 127.0.0.1 -d docs/installer      # then open http://localhost:8000/
