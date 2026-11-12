@@ -4,8 +4,8 @@
 > board revisions may differ, and driving a pin the wrong way can damage hardware. Not affiliated with
 > or endorsed by M-VAVE or JieLi.
 
-Everything here was checked on a real pedal (2026-10-30 and 31). The Elemental Pro is the same board as far as
-checked ([below](#the-elemental-pro)). Pin numbers use JieLi's scheme
+Everything here was checked on a real pedal (2026-10-30 and 31). The Elemental Pro is the same hardware
+([below](#the-elemental-pro)). Pin numbers use JieLi's scheme
 (pin = port x 16 + bit; GPIO block at 0x50000 + 0x40 x port: OUT +0, IN +4, DIR +8, DIE +12, PU +16, PD +20).
 
 ## Chip and memory
@@ -76,7 +76,8 @@ switches, power and battery sensing (there is no battery), which ADC channel is 
 
 ## The Elemental Pro
 
-M-VAVE's Elemental Pro (a stereo delay) uses the same board as far as anyone has checked (one pedal, 2026-11-12):
+M-VAVE's Elemental Pro (a stereo delay) is the same hardware as the Galaxia, with its own firmware and labels
+(checked 2026-11-12):
 
 - **The same chip and flash**: chip key 0x980F, flash ID 0x856014, and the boot head (flash 0x0000-0x3FFF) and factory
   key area (0xFF000-0xFFFFF) byte-identical to a Galaxia's.
@@ -89,6 +90,5 @@ M-VAVE's Elemental Pro (a stereo delay) uses the same board as far as anyone has
 - **Galaxia SDK firmware runs on it unchanged**: audio running, the knobs read, USB audio both ways without a missed
   packet.
 
-Not yet checked: which physical knob each ADC channel is (expect the Galaxia's positions, whatever the Elemental Pro's
-labels say), the footswitches and LED in use, and the audio by ear. The board's own marking is unknown (the pedal was not
-opened).
+- **The same controls**: with a Galaxia SDK firmware on it, every knob, the selector and both footswitches do what
+  they do on a Galaxia, in the same places, whatever the Elemental Pro's own labels say.

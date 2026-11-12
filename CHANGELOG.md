@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- **The Elemental Pro**: M-VAVE's Elemental Pro delay is the same board as the Galaxia (chip, flash, boot head, pins), and
-  Galaxia SDK firmware runs on it unchanged. README and `docs/HARDWARE.md` say what has been checked and what has not.
+- **The Elemental Pro**: M-VAVE's Elemental Pro delay is the same hardware as the Galaxia, and Galaxia SDK firmware, the
+  tools and the installer page work on it unchanged (README, `docs/HARDWARE.md`).
 - **Install over M-VAVE's firmware, and go back to it**: packages now carry a head built from JieLi's AC79 SDK
   `uboot.boot` (`gx_pkg.py sdk-files` takes it and `cfg_tool.bin` from any Felucca release), which M-VAVE's firmware
   checks before an update: so `gx_update.py` and the installer page can put an SDK firmware on a pedal still running

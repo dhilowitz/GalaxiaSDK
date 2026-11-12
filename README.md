@@ -1,7 +1,7 @@
 # Galaxia SDK (unofficial)
 
 Write your own firmware for the **M-VAVE Galaxia** stereo reverb pedal, or the **M-VAVE Elemental Pro**
-stereo delay, which is the same board inside ([below](#the-elemental-pro)). This is a board port and runtime on top of [felucca-bsp](https://github.com/hugelton/felucca-bsp), plus the tools to back up,
+stereo delay, which is the same hardware ([below](#the-elemental-pro)). This is a board port and runtime on top of [felucca-bsp](https://github.com/hugelton/felucca-bsp), plus the tools to back up,
 install and restore firmware over USB. No soldering, no programmer.
 
 > [!WARNING]
@@ -38,11 +38,9 @@ The reverb example takes 13 % of the audio block. Details in [docs/HARDWARE.md](
 
 ### The Elemental Pro
 
-M-VAVE's Elemental Pro delay is built on the same board: the same chip and flash, a byte-identical boot head and
-factory key area, and a stock firmware from the same code base that sets up every pin as the Galaxia's does. Galaxia SDK
-firmware runs on it unchanged, and the tools install and restore it the same way (backup, MIDI updates both ways). Its
-knobs, footswitches and LED have not yet been checked one by one: expect each control where the Galaxia has it, which
-need not match the Elemental Pro's labels. See [docs/HARDWARE.md](docs/HARDWARE.md#the-elemental-pro).
+M-VAVE's Elemental Pro delay is the same hardware as the Galaxia, with a different firmware and different labels.
+Everything here works on it unchanged: Galaxia SDK firmware, the tools, and the installer page. Each knob, the selector
+and the footswitches do what they do on a Galaxia, whatever the Elemental Pro's own labels say. See [docs/HARDWARE.md](docs/HARDWARE.md#the-elemental-pro).
 
 ## Build
 

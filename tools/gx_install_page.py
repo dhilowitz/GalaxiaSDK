@@ -24,9 +24,17 @@ import fm1_install as I  # noqa: E402
 
 MARK = '<script type="application/json" id="builtin">null</script>'
 SERVE = """#!/bin/sh
-# Serves this folder on localhost and opens Chrome. Close this window to stop.
+# Serves this folder on localhost and opens Chrome. Close this window to stop. The server tells the browser not to
+# keep copies, so another page served on the same port later is never shown from its cache.
 cd "$(dirname "$0")" || exit 1
-python3 -m http.server {port} --bind 127.0.0.1 &
+python3 -c '
+import http.server, sys
+class H(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+http.server.ThreadingHTTPServer(("127.0.0.1", {port}), H).serve_forever()
+' &
 server=$!
 trap 'kill $server 2>/dev/null' EXIT
 sleep 1
@@ -57,7 +65,7 @@ def main(argv=None):
     ap.add_argument("--find", action="append", default=[], metavar="NAME",
                     help='part of a USB name to look for as well as "Galaxia"; repeat for more')
     ap.add_argument("--no-own-package", action="store_true", help="no choice for a package of the user's own")
-    ap.add_argument("--port", type=int, default=8765, help="localhost port for serve.command (default 8765)")
+    ap.add_argument("--port", type=int, default=8765, help="localhost port for serve.command (default 8765); give each page its own")
     a = ap.parse_args(argv)
 
     html = (ROOT / "docs" / "installer" / "index.html").read_text(encoding="utf-8")
