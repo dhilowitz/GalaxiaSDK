@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Install over M-VAVE's firmware, and go back to it**: packages now carry a head built from JieLi's AC79 SDK
+  `uboot.boot` (`gx_pkg.py sdk-files` takes it and `cfg_tool.bin` from any Felucca release), which M-VAVE's firmware
+  checks before an update: so `gx_update.py` and the installer page can put an SDK firmware on a pedal still running
+  M-VAVE's firmware, with no bootloader, backup or sudo. M-VAVE's official packages (`Galaxia.fwsc`, `ELEMENTAL PRO.fwsc`,
+  known by their SHA-256) go back on the same way. Tested on an Elemental Pro, M-VAVE's delay on the same board, which
+  takes the same firmware. `tools/gx_install_page.py` makes the installer page with firmwares built in.
 - **Finding the pedal**: `gx_update.py` and the installer page look only for ports named "Galaxia" by default. If a
   firmware's USB name leaves that out, use `--port NAME` or the page's port field; `GX_PORTS=NAME` keeps `gx_update.py` finding
   it when you install from one firmware to another.

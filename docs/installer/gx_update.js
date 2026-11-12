@@ -16,9 +16,20 @@ const SUCCESS = [...new TextEncoder().encode("success"), 0];
 export const MODEL = "SDK-Galaxia";
 const LOADER_MARK = new TextEncoder().encode("FELUCCA-LOADER-1");
 
-// The pedal's MIDI ports: "Galaxia <name>" (SDK firmware) and "Galaxia Update" (the loader). Other gear is never
-// probed unless the page's port field names it.
-export const PORT_RE = /galaxia/i;
+// M-VAVE's firmware on the board the SDK runs on: the models a Galaxia SDK package may be installed over
+export const STOCK = { "Galaxia": "Galaxia", "ELEMENTAL PRO": "Elemental Pro" };
+// M-VAVE's official packages (m-vave.com/download), by SHA-256: the identity the pedal reports once it runs one
+// (the package's own identity marker cannot spell "Galaxia": its x encodes to the marker's "unused" value)
+export const OFFICIAL = {
+  "b26f4e5807d18e46bcb08924249d8490ebca135e370afcbc0dca47ca975a0f77": ["Galaxia_004", "Galaxia V04 (2026-11-09)"],
+  "0642a11425d269b2663e0f3bc695d33773b4f20677bcdd62a474c1b1fd751c14": ["ELEMENTAL PRO_004", "Elemental Pro V04 (2026-11-06)"],
+};
+
+// The pedal's MIDI ports: "Galaxia <name>" (SDK firmware), "Galaxia Update" (the loader), "FM-1" (M-VAVE's firmware
+// names its port after the FM-1, whose platform it shares) and "USB Composite Device" (M-VAVE's update loader). Only
+// the handshake goes to them while looking; nothing else goes to a device that doesn't answer as one of the models
+// above. Other gear is never probed unless the page's port field names it.
+export const PORT_RE = /galaxia|fm-1|composite/i;
 
 // milliseconds; the tests shorten them. There is no wait before a reply: a Galaxia does not need one, and a timer
 // would slow the install to a crawl in a background tab.
@@ -80,6 +91,8 @@ export function parseIdentity(pkt) {
   const d = unpack7(pkt.slice(1, -1));
   if (d.length !== 34 || d[0] !== 0x00 || d[1] !== 0x59 || d[2] !== 0x11) return null;
   const text = String.fromCharCode(...d.slice(6, 33)).replace(/\0+$/, "");
+  // M-VAVE's update loader sometimes answers with a blank identity: that is a loader too
+  if (!text) return { text: "ota-(unnamed)_0", model: "ota-(unnamed)", version: 0, loader: true };
   const m = /^([^_]+)_(\d+)$/.exec(text);
   return m ? { text, model: m[1], version: parseInt(m[2], 10), loader: /^ota-/i.test(m[1]) } : null;
 }
@@ -114,13 +127,32 @@ function holds(raw, mark) {
   return false;
 }
 
-// a Galaxia SDK package -> {product, image}; anything else is refused before the pedal is touched
-export function readPackage(raw) {
+export async function sha256hex(raw) {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", raw));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// a Galaxia SDK package or M-VAVE's official one -> {product (the identity the pedal reports once it runs it), image,
+// official, label, sha256}; anything else is refused before the pedal is touched
+export async function readPackage(raw) {
+  const sha256 = await sha256hex(raw);
+  const official = OFFICIAL[sha256];
+  if (official) return { product: official[0], image: logicalImage(raw), official: true, label: official[1], sha256 };
   const product = productOf(raw);
   if (!/^[^_]+_\d+$/.test(product) || modelOf(product) !== MODEL || !holds(raw, LOADER_MARK)) {
-    throw new InstallError("badpkg", "this is not a Galaxia SDK package (make one with tools/gx_pkg.py)");
+    throw new InstallError("badpkg", "this is neither a Galaxia SDK package (tools/gx_pkg.py makes them) nor an official M-VAVE file this page knows");
   }
-  return { product, image: logicalImage(raw) };
+  return { product, image: logicalImage(raw), official: false, label: product, sha256 };
+}
+
+// why this package must not go on this pedal, or null
+export function refusal(id, product) {
+  if (id.loader) return null;            // an update didn't finish: the loader takes the package it is given
+  const running = modelOf(id.text), model = modelOf(product);
+  if (running === MODEL) return null;
+  if (STOCK[running] && (model === MODEL || model === running)) return null;
+  if (STOCK[running]) return `the pedal runs M-VAVE's ${STOCK[running]} firmware (${id.text}); this file is for the ${STOCK[model] || model}`;
+  return `${id.text} isn't a Galaxia or an Elemental Pro`;
 }
 
 // ------------------------------------------------------------------ MIDI ---
@@ -178,9 +210,11 @@ async function handshake(link, tries) {
 
 export class Updater {
   // access: a MIDIAccess. port: part of a port name, for a firmware named some other way.
-  constructor(access, port = "") {
+  // names: parts of port names to look for as well as PORT_RE (a page made by tools/gx_install_page.py --find).
+  constructor(access, port = "", names = []) {
     this.access = access;
     this.port = port.trim().toLowerCase();
+    this.names = names.map((n) => n.toLowerCase());
   }
 
   inputNames() {
@@ -198,7 +232,7 @@ export class Updater {
 
   candidates(onlyPort) {
     const mine = (p) => this.port && p.name.toLowerCase().includes(this.port);
-    const named = (p) => PORT_RE.test(p.name);
+    const named = (p) => PORT_RE.test(p.name) || this.names.some((n) => p.name.toLowerCase().includes(n));
     return [...this.access.inputs.values()].filter((p) => p.state !== "disconnected" &&
       (this.port && onlyPort ? mine(p) : mine(p) || named(p)));
   }
@@ -305,11 +339,12 @@ export class Updater {
   }
 
   // running firmware -> loader -> new firmware; a pedal already in update mode only needs the write.
-  // Only a pedal running Galaxia SDK firmware is ever sent the upgrade command.
+  // Nothing is sent to a pedal that refusal() turns away.
   async install(dev, pkg, step = () => {}) {
-    if (modelOf(dev.id.text) !== MODEL) {
+    const why = refusal(dev.id, pkg.product);
+    if (why) {
       await dev.link.close();
-      throw new InstallError("stock", `the pedal runs ${dev.id.text}, not a Galaxia SDK firmware; nothing was sent`);
+      throw new InstallError("refused", `${why}; nothing was sent`);
     }
     const ota = dev.id.loader ? dev : await this.check(dev, pkg.image, step);
     await this.write(ota, pkg.image, step);

@@ -6,14 +6,21 @@
   gx_pkg.py loader LOADER.bin OTA.bin
       wrap the update loader (build/loader/loader.bin, a RAM image for 0x01C0A800) as the boot loader loads
       it: a file head, a load head, then blocks of at most 4 KiB, each LZ4-compressed (build.sh does this)
-  gx_pkg.py package APP.bin OUT.fwsc --cfg-tool-from BACKUP.bin | --cfg-tool CFG_TOOL.bin [--ota OTA.bin]
+  gx_pkg.py sdk-files PACKAGE.fwsc [DIR]
+      take JieLi's AC79 SDK files that packages need, uboot.boot and cfg_tool.bin (Apache-2.0), out of a package
+      that carries them, such as any Felucca release (hugelton.github.io/Felucca/firmware/), into DIR (build/sdk).
+      Both are checked against the SDK's own (AC79NN_SDK_V1.2.1).
+  gx_pkg.py package APP.bin OUT.fwsc [--sdk DIR] [--cfg-tool-from BACKUP.bin] [--ota OTA.bin]
       a package (M-UPGRADE .fwsc, the format of M-VAVE's own updates): the app area as gx_flash.py install
       writes it, with build/loader/ota.bin as its update loader. Its identity ("SDK-Galaxia_900") is read from the
-      app (GX_UPDATE_ID). cfg_tool.bin is JieLi's SDK file (Apache-2.0), the same on every Galaxia seen: give a
-      backup to take it from, or the SDK's cfg_tool.bin.
+      app (GX_UPDATE_ID). The SDK files come from DIR (build/sdk); --cfg-tool-from takes cfg_tool.bin from a
+      backup instead (it is the same file on every Galaxia seen).
 
-The package's head (flash 0x0000-0x3FFF) is left blank: the Galaxia's update loader never writes the head and
-does not read it. The UFW container and the identity marker come from felucca-bsp's tools/fm1pkg.py (MPL-2.0).
+The package's head (flash 0x0000-0x3FFF) is built from the SDK's uboot.boot, as felucca-bsp's fm1pkg.py builds
+Felucca's: M-VAVE's firmware checks it before it starts an update (a blank head is refused), so with it a pedal still
+on M-VAVE's firmware can install a package over USB MIDI. Nothing writes it to the pedal: the update loaders write
+the app area only and the pedal keeps its own head. The UFW container and the identity marker come from fm1pkg.py
+(MPL-2.0).
 """
 import argparse, hashlib, re, struct, sys
 from pathlib import Path
@@ -31,6 +38,9 @@ LOADER_NAME = b"usb_hid_ota.bin"        # the boot loader's name for the update 
 LOADER_MARK = b"FELUCCA-LOADER-1"       # bsp/loader/crt0_ldr.S: the firmware knows the loader by it
 PKG_FLASH = 0x93000                     # flash.bin up to the end of what the loader writes
 CFG_TOOL_SHA256 = "276579954f076886a6a7694f65dc71c034a63a2c204b76749065c0ac7b010d1b"
+UBOOT_SHA256 = "4e3b4c220dc96641cb5a723f41e68ce41d5261ae9434bb33fbd7f2c59976ded4"   # AC79NN_SDK_V1.2.1 uboot.boot
+SDK_DIR = HERE.parent / "build" / "sdk"
+ISD_NAME = b"[GALAXIA-SDK]\r\n"
 ID_RE = re.compile(rb"SDK-Galaxia_\d+\0")
 
 
@@ -143,39 +153,105 @@ def identity(app):
     return found.pop()
 
 
-def flash_bin(app, cfg_tool):
-    img, _ = jl_package.build(app, cfg_tool, b"\xff" * jl_package.AREA)
+def boot_head(uboot, isd_name=ISD_NAME, key=fm1pkg.KEY):
+    """flash 0x0000-0x3FFF as fm1pkg.flash_image() builds it: the flash header, a JLFS directory (uboot.boot,
+    isd_config.ini, app_dir_head, key_mac), the SDK's SPL and a minimal isd_config holding the chip key"""
+    isd = fm1pkg.key_blob(key) + isd_name
+    f = bytearray(b"\xff" * jl_package.AREA)
+    spl_off = 0xA0
+    isd_off = spl_off + len(uboot)
+    f[spl_off:isd_off] = uboot
+    f[isd_off:isd_off + len(isd)] = isd
+    top = (fm1pkg.entry(fm1pkg.crc16(uboot), spl_off, len(uboot), 0x00, 0x00, 0, "uboot.boot") +
+           fm1pkg.entry(fm1pkg.crc16(isd), isd_off, len(isd), 0x02, 0x80, 0, "isd_config.ini") +
+           fm1pkg.entry(0xFFFF, 0x4000, 0xFFFFFFFF, 0x81, 0xFF, 0, "app_dir_head") +
+           fm1pkg.entry(0xFFFF, 0xFF000, 0x1000, 0x12, 0x01, 0xFFFF, "key_mac"))
+    h = bytearray(struct.pack("<H", fm1pkg.crc16(fm1pkg.FLASH_HDR)) + fm1pkg.FLASH_HDR + top)
+    for o in range(0, len(h), 32):
+        fm1pkg.enc(h, o, 32)
+    f[:len(h)] = h
+    return bytes(f)
+
+
+def sdk_files(pkg):
+    """uboot.boot and cfg_tool.bin out of a package built with them (a Felucca release) -> (uboot, cfg_tool)"""
+    raw = Path(pkg).read_bytes()
+    logical = b"".join(raw[i * 0x30:i * 0x30 + 0x2F] for i in range(20)) + raw[20 * 0x30:]
+    hdr = bytearray(logical[:0x40])
+    fm1pkg.enc(hdr, 0, 0x40)
+    count = struct.unpack_from("<H", hdr, 8)[0]
+    flash = None
+    for i in range(count):
+        e = bytearray(logical[0x40 + i * 0x50:0x40 + (i + 1) * 0x50])
+        fm1pkg.enc(e, 0, 0x50)
+        off, size = struct.unpack_from("<II", e, 8)
+        if e[0x40:0x50].split(b"\0")[0] == b"flash.bin":
+            flash = logical[off:off + size]
+    if not flash:
+        raise SystemExit("%s: no flash.bin in it" % pkg)
+    uboot = None
+    for o in range(0x20, 0xA0, 32):
+        e = bytearray(flash[o:o + 32])
+        fm1pkg.enc(e, 0, 32)
+        if e[16:].split(b"\0")[0] == b"uboot.boot":
+            off, size = struct.unpack_from("<II", e, 4)
+            uboot = bytes(flash[off:off + size])
+    cfg = jl_package.cfg_tool_from(bytes(flash).ljust(0x100000, b"\xff"))
+    if not uboot or hashlib.sha256(uboot).hexdigest() != UBOOT_SHA256:
+        raise SystemExit("%s: its uboot.boot is not the SDK's" % pkg)
+    if hashlib.sha256(cfg).hexdigest() != CFG_TOOL_SHA256:
+        raise SystemExit("%s: its cfg_tool.bin is not the SDK's" % pkg)
+    return uboot, cfg
+
+
+def flash_bin(app, cfg_tool, uboot):
+    img, _ = jl_package.build(app, cfg_tool, boot_head(uboot))
     if any(b != 0xFF for b in img[0x7C000:]):
         raise SystemExit("the app area runs past 0x7C000")
     return bytes(img[:PKG_FLASH])
 
 
-def package(app, cfg_tool, ota):
+def package(app, cfg_tool, ota, uboot):
     if hashlib.sha256(cfg_tool).hexdigest() != CFG_TOOL_SHA256:
         raise SystemExit("cfg_tool.bin is not the JieLi SDK file every Galaxia has")
+    if hashlib.sha256(uboot).hexdigest() != UBOOT_SHA256:
+        raise SystemExit("uboot.boot is not the AC79 SDK's (tools/gx_pkg.py sdk-files gets it)")
     if LOADER_MARK not in ota[:0x100]:
         raise SystemExit("ota.bin: not a Galaxia SDK update loader")
     product = identity(app)
-    return product, fm1pkg.ufw(flash_bin(app, cfg_tool), ota, product)
+    return product, fm1pkg.ufw(flash_bin(app, cfg_tool, uboot), ota, product)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     l = sub.add_parser("loader"); l.add_argument("image", type=Path); l.add_argument("out", type=Path)
+    s = sub.add_parser("sdk-files"); s.add_argument("package", type=Path)
+    s.add_argument("dir", type=Path, nargs="?", default=SDK_DIR)
     p = sub.add_parser("package"); p.add_argument("app", type=Path); p.add_argument("out", type=Path)
-    src = p.add_mutually_exclusive_group(required=True)
-    src.add_argument("--cfg-tool-from", type=Path, metavar="BACKUP", help="a backup from gx_flash.py backup")
-    src.add_argument("--cfg-tool", type=Path, help="the JieLi SDK's cfg_tool.bin")
+    p.add_argument("--sdk", type=Path, default=SDK_DIR, metavar="DIR", help="uboot.boot and cfg_tool.bin (sdk-files)")
+    p.add_argument("--cfg-tool-from", type=Path, metavar="BACKUP", help="cfg_tool.bin from a gx_flash.py backup")
     p.add_argument("--ota", type=Path, default=HERE.parent / "build" / "loader" / "ota.bin")
     a = ap.parse_args()
+    if a.cmd == "sdk-files":
+        uboot, cfg = sdk_files(a.package)
+        a.dir.mkdir(parents=True, exist_ok=True)
+        (a.dir / "uboot.boot").write_bytes(uboot)
+        (a.dir / "cfg_tool.bin").write_bytes(cfg)
+        print("%s: uboot.boot and cfg_tool.bin (the AC79 SDK's)" % a.dir)
+        return
     if a.cmd == "loader":
         ota = wrap_loader(a.image.read_bytes())
         a.out.write_bytes(ota)
         print("ota.bin: %d bytes (loader %d)" % (len(ota), a.image.stat().st_size))
         return
-    cfg = (jl_package.cfg_tool_from(a.cfg_tool_from.read_bytes()) if a.cfg_tool_from else a.cfg_tool.read_bytes())
-    product, pkg = package(a.app.read_bytes(), cfg, a.ota.read_bytes())
+    try:
+        uboot = (a.sdk / "uboot.boot").read_bytes()
+        cfg = (jl_package.cfg_tool_from(a.cfg_tool_from.read_bytes()) if a.cfg_tool_from
+               else (a.sdk / "cfg_tool.bin").read_bytes())
+    except OSError as e:
+        raise SystemExit("%s: %s. Get the SDK files once with: tools/gx_pkg.py sdk-files FELUCCA.fwsc" % (e.filename, e.strerror))
+    product, pkg = package(a.app.read_bytes(), cfg, a.ota.read_bytes(), uboot)
     a.out.write_bytes(pkg)
     print("%s: %d bytes, identity %s" % (a.out, len(pkg), product))
 

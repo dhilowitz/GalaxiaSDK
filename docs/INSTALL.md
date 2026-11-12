@@ -76,40 +76,56 @@ line twice a second; `h` lists its commands.
 
 ## Updating over USB MIDI (experimental)
 
-Once a Galaxia SDK firmware is on the pedal, the next one can go on over USB MIDI, with no bootloader and no
-sudo, on Linux, macOS or Windows. It uses the update protocol of M-VAVE's own updater, as felucca-bsp
-implements it. Make a package from the app, then install it:
+A firmware can go on over USB MIDI, with no bootloader and no sudo, on Linux, macOS or Windows, whether the pedal
+runs Galaxia SDK firmware or M-VAVE's own. It uses the update protocol of M-VAVE's own updater, as felucca-bsp
+implements it. Packages need two files from JieLi's AC79 SDK (Apache-2.0), which any Felucca release carries; get them
+once, make a package from the app, then install it:
 
 ```
-python3 tools/gx_pkg.py package build/reverb/reverb.bin reverb.fwsc --cfg-tool-from my-galaxia.bin
+curl -LO https://hugelton.github.io/Felucca/firmware/felucca-1.8.1.fwsc      # once: any Felucca release
+python3 tools/gx_pkg.py sdk-files felucca-1.8.1.fwsc                         # once: build/sdk/
+python3 tools/gx_pkg.py package build/reverb/reverb.bin reverb.fwsc
 pip install mido python-rtmidi                      # once
 python3 tools/gx_update.py reverb.fwsc
 ```
+
+Tested on a Galaxia running Galaxia SDK firmware, and on an Elemental Pro (M-VAVE's delay, the same board) running
+M-VAVE's own firmware: the stock firmware checks the package, then hands over to the package's update loader.
 
 The firmware checks the package and restarts into the update loader (`Galaxia Update`; LED red,
 flickering green), which reads the whole package before erasing anything, writes the app area and
 restarts into the new firmware. If it stops part way, run the same command again: the loader finishes the
 write, as long as the pedal stayed powered: a power cut while the loader writes leaves a half-written firmware
-(then use `gx_flash.py`; see "If a firmware does not start"). `gx_update.py --info` says what the pedal runs. A pedal on M-VAVE's firmware is never sent the
-upgrade command; install the first SDK firmware with `gx_flash.py`. An update takes about half a minute (`--slow` waits before each reply, if one ever stalls). macOS
-may keep showing the MIDI port under the firmware's earlier name until the pedal is replugged.
+(then use `gx_flash.py`; see "If a firmware does not start"). `gx_update.py --info` says what the pedal runs. The
+upgrade command goes only to a pedal that answers as a Galaxia or an Elemental Pro. An update takes about half a minute
+(`--slow` waits before each reply, if one ever stalls). macOS may keep showing the MIDI port under the firmware's
+earlier name until the pedal is replugged.
 
-A package holds the app area and the update loader (`build/loader/ota.bin`, built with every example), plus
-JieLi's `cfg_tool.bin` (Apache-2.0), taken from your backup (`--cfg-tool-from`) or from JieLi's AC79 SDK
-(`--cfg-tool`): it is the same file on every Galaxia. It holds nothing else from M-VAVE or JieLi.
+A package holds the app area and the update loader (`build/loader/ota.bin`, built with every example), plus two
+files from JieLi's AC79 SDK (Apache-2.0): `cfg_tool.bin`, in the app area, and `uboot.boot`, in the package's head,
+which M-VAVE's firmware checks before it starts an update. No update loader writes the head: the pedal keeps its own.
+A package holds nothing from M-VAVE. Ship `bsp/LICENSES/Apache-2.0.txt` with any package you give away.
+
+**Back to M-VAVE's firmware without a backup**: M-VAVE publishes the stock firmware
+([m-vave.com/download](https://www.m-vave.com/download): `Galaxia.fwsc`, and `ELEMENTAL PRO.fwsc` for the Elemental
+Pro). `gx_update.py` installs it on a pedal running Galaxia SDK firmware; it knows the official files by their SHA-256
+and takes no other. The SDK firmware can't tell which pedal it is on, so use the file for yours. A `gx_flash.py`
+backup is still the fullest way back: it also keeps your pedal's own settings.
 
 ### From Chrome or Edge
 
-`docs/installer/` does the same install from a web page, using Web MIDI, with nothing to install. Browsers only allow
-Web MIDI over https or localhost, so serve the page locally and open it:
+`docs/installer/` does the same from a web page, using Web MIDI, with nothing to install, and the way back too
+(choose M-VAVE's official file). Browsers only allow Web MIDI over https or localhost, so serve the page locally:
 
 ```
 python3 -m http.server 8000 --bind 127.0.0.1 -d docs/installer      # then open http://localhost:8000/
 ```
 
-Choose your `.fwsc` and press Install. The page accepts only Galaxia SDK packages, talks only to MIDI ports named after
-the pedal (it has a field for other port names), and never sends the upgrade command to a pedal on M-VAVE's firmware.
-If an install stops while the pedal is in update mode, press Install again with the same package. On a Mac, the update
+Choose your `.fwsc` and press Install. The page takes Galaxia SDK packages and M-VAVE's official files, talks only to
+MIDI ports named after the pedal (it has a field for other port names), and sends the upgrade command only to a pedal
+that answers as a Galaxia or an Elemental Pro. If an install stops while the pedal is in update mode, press Install
+again with the same file. `tools/gx_install_page.py` makes a copy of the page with firmwares built in, ready to put on
+a website. On a Mac, the update
 loader is a new USB device, so macOS may ask whether to allow it (System Settings > Privacy & Security > Allow
 accessories to connect); if the loader doesn't appear, check that first.
 
@@ -123,8 +139,8 @@ python3 tools/gx_softkey.py
 python3 tools/gx_flash.py restore my-galaxia.bin
 ```
 
-Your backup is the way back: **keep `my-galaxia.bin` somewhere safe, with a second copy.** This project ships no M-VAVE
-firmware and can't replace a lost backup, and the installer page can't restore one.
+Your backup is the fullest way back: **keep `my-galaxia.bin` somewhere safe, with a second copy.** Without one, M-VAVE's
+official firmware goes back on over USB MIDI (see "Back to M-VAVE's firmware without a backup" above).
 
 ## If a firmware does not start
 

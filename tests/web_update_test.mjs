@@ -65,7 +65,8 @@ class Pedal {
     this.inputs.set("gear", this.gear); this.outputs.set("gear", this.gear);
     this.boot(identity, name);
   }
-  boot(identity, name) {
+  boot(identity, name, inLoader = identity.startsWith("ota-")) {
+    this.inLoader = inLoader;
     if (this.port) this.port.state = "disconnected";
     this.identity = identity;
     this.port = name ? new Port(name, (b) => this.rx(b)) : null;
@@ -81,7 +82,7 @@ class Pedal {
     if (same(b, HS)) { setTimeout(() => this.port && this.port.deliver(identityPkt(this.identity)), 0); return; }
     if (same(b, UP)) {
       this.upgrades++;
-      this.plan = this.identity.startsWith("ota-") ? this.writePlan() : this.checkPlan();
+      this.plan = this.inLoader ? this.writePlan() : this.checkPlan();
       this.next();
       return;
     }
@@ -104,11 +105,11 @@ class Pedal {
     const addr = (u[7] | u[8] << 8 | u[9] << 16 | u[10] << 24) >>> 0, n = u[11] | u[12] << 8;
     if (addr === 0xE0000000) {
       if (this.opts.noLoader) { this.boot("", null); return; }
-      this.boot("ota-" + this.opts.running, "Galaxia Update");
+      this.boot(this.opts.loaderId ?? "ota-" + this.opts.running, this.opts.loaderPort ?? "Galaxia Update", true);
       return;
     }
     if (addr === 0xF0000000) { this.boot(this.opts.after, this.opts.afterPort ?? "Galaxia Reverb"); return; }
-    if (!this.identity.startsWith("ota-")) { this.next(); return; }
+    if (!this.inLoader) { this.next(); return; }
     this.readBack.set(u.slice(14, 14 + n), addr);
     this.reads++;
     if (this.opts.dropAfter && this.reads === this.opts.dropAfter) { this.boot("", null); return; }
@@ -121,7 +122,7 @@ class Pedal {
 const pkgPath = process.argv[2];
 if (!pkgPath) { console.error("usage: node tests/web_update_test.mjs PACKAGE.fwsc"); process.exit(2); }
 const raw = new Uint8Array(readFileSync(pkgPath));
-const pkg = G.readPackage(raw);
+const pkg = await G.readPackage(raw);
 const PRODUCT = pkg.product;
 
 // the same bytes as the Python tool
@@ -153,17 +154,17 @@ const pid = G.parseIdentity(identityPkt("ota-SDK-Galaxia_900"));
 ok(pid.loader && G.modelOf(pid.text) === G.MODEL && pid.version === 900, "a loader identity parses");
 
 // packages
-const refused = (r) => { try { G.readPackage(r); return false; } catch (e) { return e.code === "badpkg"; } };
-ok(refused(raw.subarray(0, 100)), "a short file is refused");
-ok(refused(new Uint8Array(raw.length).fill(0x7D)), "a file with no identity is refused");
+const refused = async (r) => { try { await G.readPackage(r); return false; } catch (e) { return e.code === "badpkg"; } };
+ok(await refused(raw.subarray(0, 100)), "a short file is refused");
+ok(await refused(new Uint8Array(raw.length).fill(0x7D)), "a file with no identity is refused");
 const noMark = raw.slice();
 for (let i = noMark.indexOf(0x46); i >= 0; i = noMark.indexOf(0x46, i + 1)) {
   if (String.fromCharCode(...noMark.subarray(i, i + 16)) === "FELUCCA-LOADER-1") noMark[i] = 0;
 }
-ok(refused(noMark), "a package without the update loader is refused");
+ok(await refused(noMark), "a package without the update loader is refused");
 const other = raw.slice();
 for (let i = 0; i < 20; i++) other[i * 0x30 + 0x2F] = (("FM-1_906".charCodeAt(i) || (0x7D - i - 1)) + i + 1) & 255;
-ok(G.productOf(other) === "FM-1_906" && refused(other), "another product's package is refused");
+ok(G.productOf(other) === "FM-1_906" && await refused(other), "another product's package is refused");
 
 const opts = { running: PRODUCT, after: PRODUCT };
 const fresh = (o = {}) => new Pedal(pkg.image, PRODUCT, "Galaxia Delay", { ...opts, ...o });
@@ -192,9 +193,9 @@ const fresh = (o = {}) => new Pedal(pkg.image, PRODUCT, "Galaxia Delay", { ...op
 }
 // a stock pedal
 {
-  const p = new Pedal(pkg.image, "Galaxia_002", "Galaxia", opts), up = new G.Updater(p);
+  const p = new Pedal(pkg.image, "BlackBox_010", "FM-1", opts), up = new G.Updater(p);
   const dev = await up.find();
-  ok(await code(up.install(dev, pkg)) === "stock" && p.upgrades === 0, "a stock pedal is never sent the upgrade command");
+  ok(await code(up.install(dev, pkg)) === "refused" && p.upgrades === 0, "another M-VAVE model is never sent the upgrade command");
 }
 // failures
 {
@@ -228,6 +229,40 @@ const fresh = (o = {}) => new Pedal(pkg.image, PRODUCT, "Galaxia Delay", { ...op
   const up = new G.Updater(p, "my eff");
   ok(await up.install(await up.find(), pkg) === PRODUCT, "the port field reaches it, and the restarted firmware");
   ok(p.other.length === 0, "the port field still leaves other gear alone");
+}
+
+{
+  const p = new Pedal(pkg.image, PRODUCT, "My Effect", { ...opts, afterPort: "My Effect" });
+  const up = new G.Updater(p, "", ["my eff"]);
+  ok(await up.install(await up.find(), pkg) === PRODUCT, "a page's extra names find the pedal, then the restarted firmware");
+  ok(p.other.length === 0, "extra names still leave other gear alone");
+}
+
+// M-VAVE's firmware and the way back to it
+{
+  const p = new Pedal(pkg.image, "Galaxia_002", "FM-1", opts), up = new G.Updater(p);
+  ok(await up.install(await up.find(), pkg) === PRODUCT && same(p.readBack, pkg.image), "a stock Galaxia (port FM-1) takes an SDK package");
+}
+{
+  const p = new Pedal(pkg.image, "ELEMENTAL PRO_004", "USB Composite Device", opts), up = new G.Updater(p);
+  ok(await up.install(await up.find(), pkg) === PRODUCT, "a stock Elemental Pro takes an SDK package");
+}
+{
+  const p = new Pedal(pkg.image, "FM-1_015", "FM-1", opts), up = new G.Updater(p);
+  ok(await code(up.install(await up.find(), pkg)) === "refused" && p.upgrades === 0, "an FM-1 on the FM-1 port: refused, nothing sent");
+}
+{
+  // M-VAVE's official package: this test stands its own package in for one (the table is by SHA-256)
+  G.OFFICIAL[pkg.sha256] = ["Galaxia_004", "Galaxia V04 (test)"];
+  const off = await G.readPackage(raw);
+  ok(off.official && off.product === "Galaxia_004", "an official file is known by its SHA-256");
+  const p = new Pedal(pkg.image, PRODUCT, "Galaxia Reverb", { ...opts, loaderId: "", loaderPort: "USB Composite Device",
+    after: "Galaxia_004", afterPort: "FM-1" });
+  const up = new G.Updater(p);
+  ok(await up.install(await up.find(), off) === "Galaxia_004", "back to stock, through M-VAVE's unnamed loader");
+  const q = new Pedal(pkg.image, "ELEMENTAL PRO_004", "FM-1", opts), uq = new G.Updater(q);
+  ok(await code(uq.install(await uq.find(), off)) === "refused" && q.upgrades === 0, "the Galaxia's stock file on a stock Elemental Pro: refused");
+  delete G.OFFICIAL[pkg.sha256];
 }
 
 console.log(failed ? `${failed} FAILED` : "all ok");

@@ -4,7 +4,7 @@
 """tools/gx_update.py against a simulated pedal (no hardware, no mido): the running firmware's check, the
 update loader's write, the restart; and that a stock pedal is never sent the upgrade command.
   python3 tests/update_test.py PACKAGE.fwsc          (tools/gx_pkg.py package makes one)"""
-import io, queue, sys, threading
+import hashlib, io, queue, sys, threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,7 +54,9 @@ class Link:
 class Pedal:
     """a MIDI backend with one pedal on it; reads the package the way the firmware and the loader do"""
 
-    def __init__(self, image, identity, name):
+    def __init__(self, image, identity, name, after=("SDK-Galaxia_900", "Galaxia Reverb"),
+                 loader=("ota-SDK-Galaxia_900", "Galaxia Update")):
+        self.after, self.loader = after, loader
         self.image, self.upgrades, self.served, self.bad = image, 0, 0, 0
         self.links, self.gen = [], 0
         self.boot(identity, name)
@@ -84,7 +86,7 @@ class Pedal:
             self.tx(b"\xF0" + I.pack7(bytes([0, 0x59, 0x11, 0, 0, 0]) + t + bytes(28 - len(t))) + b"\xF7")
         elif d == I.UPGRADE:
             self.upgrades += 1
-            if self.identity.startswith("ota-"):            # the loader: the whole flash.bin, then finish
+            if self.identity.startswith("ota-") or not self.identity:            # the loader: the whole flash.bin, then finish
                 self.queue = [(k, 512) for k in range(0x400, 0x400 + 0x4000, 512)] + [(I.FINISH_WRITE, 8)]
             else:                                           # the firmware: the header and the loader, then go
                 self.queue = [(0, 512), (512, 512), (0x1000, 512), (I.FINISH_CHECK, 8)]
@@ -97,9 +99,9 @@ class Pedal:
             self.served += 1
             self.waiting = None
             if addr == I.FINISH_CHECK:
-                threading.Timer(0.05, self.boot, ("ota-SDK-Galaxia_900", "Galaxia Update")).start()
+                threading.Timer(0.05, self.boot, self.loader).start()
             elif addr == I.FINISH_WRITE:
-                threading.Timer(0.05, self.boot, ("SDK-Galaxia_900", "Galaxia Reverb")).start()
+                threading.Timer(0.05, self.boot, self.after).start()
             else:
                 self.next()
 
@@ -131,17 +133,39 @@ def main():
     ok(rc == 0 and p.upgrades == 1, "a pedal left in the loader: the write is finished")
 
     p = Pedal(image, "Galaxia_002", "FM-1")
-    rc, _ = run(p, pkg)
-    ok(rc != 0 and p.upgrades == 0, "stock firmware (MIDI port FM-1): not found, nothing sent")
+    rc, out = run(p, pkg)
+    ok(rc == 0 and p.upgrades == 2 and p.bad == 0, "a stock Galaxia (port FM-1): the SDK package goes on")
 
-    p = Pedal(image, "Galaxia_002", "Galaxia")
+    p = Pedal(image, "ELEMENTAL PRO_004", "USB Composite Device")
+    rc, out = run(p, pkg)
+    ok(rc == 0 and p.upgrades == 2, "a stock Elemental Pro: the SDK package goes on")
+
+    p = Pedal(image, "FM-1_015", "FM-1")
     rc, _ = run(p, pkg)
-    ok(rc != 0 and p.upgrades == 0, "stock firmware on a Galaxia-named port: refused, nothing sent")
+    ok(rc != 0 and p.upgrades == 0, "an FM-1 answers on the FM-1 port: refused, nothing sent")
+
+    # M-VAVE's official package: this test stands its own package in for one (the table is by SHA-256)
+    raw = open(pkg, "rb").read()
+    G.OFFICIAL[hashlib.sha256(raw).hexdigest()] = ("Galaxia_004", "Galaxia V04 (test)")
+    p = Pedal(image, "SDK-Galaxia_900", "Galaxia Reverb", after=("Galaxia_004", "FM-1"),
+              loader=("", "USB Composite Device"))
+    rc, out = run(p, pkg)
+    ok(rc == 0 and "runs Galaxia_004" in out and p.upgrades == 2, "back to stock, through M-VAVE's unnamed loader")
+
+    p = Pedal(image, "ELEMENTAL PRO_004", "FM-1")
+    rc, _ = run(p, pkg)
+    ok(rc != 0 and p.upgrades == 0, "the Galaxia's stock file on a stock Elemental Pro: refused")
+
+    p = Pedal(image, "Galaxia_002", "FM-1", after=("Galaxia_004", "FM-1"))
+    rc, out = run(p, pkg)
+    ok(rc == 0 and p.upgrades == 2, "a stock Galaxia updated to its official file")
+    del G.OFFICIAL[hashlib.sha256(raw).hexdigest()]
 
     p = Pedal(image, "SDK-Galaxia_900", "Galaxia Reverb")
     rc, out = run(p, "--info")
     ok(rc == 0 and "SDK-Galaxia_900" in out and p.upgrades == 0, "--info: reports, sends nothing")
-    ok(G.port_re().search("Galaxia Update") and not G.port_re().search("My Effect"), "by default only Galaxia ports")
+    ok(G.port_re().search("Galaxia Update") and G.port_re().search("FM-1") and not G.port_re().search("My Effect"),
+       "by default only the pedal's ports")
     ok(G.port_re("my effect").search("My Effect") and G.port_re("my effect").search("Galaxia Update"),
        "GX_PORTS adds ports and keeps the loader's")
     print("FAILED: %d" % failed if failed else "all passed")

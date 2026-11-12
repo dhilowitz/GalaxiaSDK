@@ -26,7 +26,7 @@ install and restore firmware over USB. No soldering, no programmer.
 | `examples/multifx/` | Nine effects, one per selector position: digital delay, tape echo, ping-pong delay, chorus, flanger, phaser, tremolo/auto-pan, plate reverb, lo-fi. One commented file per effect; the same knob layout for all (top-left the main control, top-right mix), tap tempo on the right footswitch. `tests/mfx_render.c` runs them on a computer. |
 | `examples/diag/` | Audio link check: a 1 kHz tone on the left output, the raw input words and buffer counters on the console. |
 | `loader/` | The update loader for updates over USB MIDI (felucca-bsp's, with the Galaxia's LED and names): `build/loader/ota.bin`. |
-| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image), `gx_pkg.py` and `gx_update.py` (update packages, installed over USB MIDI; experimental), `get_toolchain.sh`. |
+| `tools/` | `gx_softkey.py` (into the bootloader), `gx_flash.py` (backup, install, restore, run), `jl_package.py` (the flash image), `gx_pkg.py` and `gx_update.py` (update packages, installed over USB MIDI; experimental), `gx_install_page.py` (an installer page with firmwares built in), `get_toolchain.sh`. |
 | `docs/` | [HARDWARE.md](docs/HARDWARE.md), [INSTALL.md](docs/INSTALL.md), and `installer/`, a web page that installs update packages from Chrome or Edge (experimental). |
 
 ## The hardware in short
